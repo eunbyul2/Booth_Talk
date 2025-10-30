@@ -1,0 +1,149 @@
+.survey-response-page {
+  min-height: 100vh;
+  background: #f5f5f5;
+}
+
+.survey-header {
+  background: white;
+  border-bottom: 1px solid var(--border-color);
+  padding: 24px 0;
+}
+
+.survey-header .container {
+  max-width: 800px;
+}
+
+.survey-header h1 {
+  font-size: 28px;
+  color: var(--text-primary);
+  margin-top: 16px;
+}
+
+.survey-container {
+  max-width: 800px;
+  padding: 32px 24px;
+}
+
+.user-info-section h3 {
+  font-size: 18px;
+  color: var(--text-primary);
+  margin-bottom: 20px;
+}
+
+.user-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.section-title {
+  font-size: 18px;
+  color: var(--text-primary);
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid var(--border-color);
+}
+
+.question-box {
+  margin-bottom: 32px;
+}
+
+.question-number {
+  display: inline-block;
+  padding: 6px 12px;
+  background: var(--primary-color);
+  color: white;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.question-text {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 16px;
+}
+
+.rating-group {
+  display: flex;
+  gap: 12px;
+}
+
+.star-btn {
+  width: 50px;
+  height: 50px;
+  background: var(--bg-gray);
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 24px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.star-btn:hover {
+  transform: scale(1.1);
+}
+
+.star-btn.active {
+  background: #fef3c7;
+  border-color: #f59e0b;
+}
+
+.checkbox-group,
+.radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.checkbox-option,
+.radio-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  background: var(--bg-gray);
+  border: 2px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.checkbox-option:hover,
+.radio-option:hover {
+  background: #eef2ff;
+  border-color: var(--primary-color);
+}
+
+.checkbox-option input,
+.radio-option input {
+  cursor: pointer;
+}
+
+.checkbox-option span,
+.radio-option span {
+  font-size: 15px;
+  color: var(--text-primary);
+}
+
+.btn-submit {
+  width: 100%;
+  padding: 16px;
+  font-size: 16px;
+  margin-top: 24px;
+}
+
+@media (max-width: 768px) {
+  .rating-group {
+    justify-content: space-between;
+  }
+
+  .star-btn {
+    width: 45px;
+    height: 45px;
+    font-size: 20px;
+  }
+}

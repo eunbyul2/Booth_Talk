@@ -1,0 +1,160 @@
+.magic-login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(
+    135deg,
+    var(--primary-500) 0%,
+    var(--primary-700) 100%
+  );
+  padding: 24px;
+}
+
+.magic-login-container {
+  width: 100%;
+  max-width: 480px;
+}
+
+.status-box {
+  background: white;
+  border-radius: var(--radius-xl);
+  padding: 48px 40px;
+  text-align: center;
+  box-shadow: var(--shadow-xl);
+  animation: slideUp 0.4s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.status-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  margin-bottom: 24px;
+}
+
+.status-icon.loading {
+  background: var(--primary-50);
+  color: var(--primary-600);
+}
+
+.status-icon.success {
+  background: var(--success-50);
+  color: var(--success-600);
+  animation: scaleIn 0.5s ease-out;
+}
+
+.status-icon.error {
+  background: var(--danger-50);
+  color: var(--danger-600);
+  animation: shake 0.5s ease-out;
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-10px);
+  }
+  75% {
+    transform: translateX(10px);
+  }
+}
+
+.spin-animation {
+  animation: spin 1s linear infinite;
+}
+
+.status-box h2 {
+  font-size: 28px;
+  color: var(--text-primary);
+  margin-bottom: 12px;
+  font-weight: 700;
+}
+
+.status-box p {
+  color: var(--text-secondary);
+  font-size: 15px;
+  margin-bottom: 24px;
+}
+
+.company-info {
+  margin: 20px 0;
+}
+
+.company-badge {
+  display: inline-block;
+  padding: 12px 24px;
+  background: var(--primary-50);
+  color: var(--primary-700);
+  border-radius: var(--radius-full);
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.first-login-notice {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: var(--warning-50);
+  border: 1.5px solid var(--warning-500);
+  border-radius: var(--radius-md);
+  color: var(--warning-600);
+  font-weight: 500;
+  margin-bottom: 16px;
+}
+
+.notice-icon {
+  font-size: 20px;
+}
+
+.redirect-text {
+  font-size: 14px;
+  color: var(--text-tertiary);
+}
+
+.error-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.error-actions button {
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  .status-box {
+    padding: 40px 24px;
+  }
+
+  .status-box h2 {
+    font-size: 24px;
+  }
+}
