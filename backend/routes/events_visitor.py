@@ -3,7 +3,7 @@
 - 현재 시간 기준 입장 가능한 이벤트만 표시
 - 방문 시간 변경 필터링 기능
 """
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from typing import Optional, List
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
@@ -16,29 +16,26 @@ router = APIRouter()
 
 
 # Response Models
-"""Visitor-facing event discovery routes."""
+class EventResponse(BaseModel):
+    id: int
+    company_id: int
+    company_name: str
     event_name: str
-    event_type: str
-    start_date: datetime
-    end_date: datetime
-    start_time: str
-    end_time: str
-    location: str
-    description: Optional[str]
-    booth_number: Optional[str]
-    image_url: Optional[str]
-    
-    # 계산된 필드
-    is_available_now: bool = Field(description="현재 입장 가능 여부")
-    available_hours: str = Field(description="입장 가능 시간")
-    event_name: str
-    event_type: Optional[str]
+    event_type: Optional[str] = None
     start_date: date
     end_date: date
-    start_time: Optional[str]
-    end_time: Optional[str]
-    location: Optional[str]
-    """이벤트 검색 응답"""
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
+    location: Optional[str] = None
+    description: Optional[str] = None
+    booth_number: Optional[str] = None
+    image_url: Optional[str] = None
+    is_available_now: bool = Field(description="현재 입장 가능 여부")
+    available_hours: str = Field(description="입장 가능 시간")
+    days_until_start: int
+
+
+class EventSearchResponse(BaseModel):
     total: int
     available_count: int
     upcoming_count: int

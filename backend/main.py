@@ -3,6 +3,7 @@
 """
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from routes import auth, events, events_visitor
 
 app = FastAPI(
@@ -24,6 +25,10 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/api/auth", tags=["인증"])
 app.include_router(events.router, prefix="/api/events", tags=["이벤트"])
 app.include_router(events_visitor.router, prefix="/api", tags=["관람객"])  # 🆕 추가
+
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    return Response(status_code=204)
 
 @app.get("/")
 def root():
