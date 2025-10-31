@@ -22,6 +22,9 @@ pydantic-settings==2.1.0
 email-validator==2.1.0
 dnspython==2.4.2
 qrcode==7.4.2
+openai==2.6.1 #추가
+anthropic==0.72.0 #추가
+requests==2.32.3 #추가
 
 # OCR (선택사항 - 필요시 주석 해제)
 # pytesseract==0.3.10
