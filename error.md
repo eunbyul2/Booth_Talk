@@ -1,5 +1,6 @@
 (backend) PS D:\Booth_Talk\backend> uvicorn main:app --reload
-# 에러메세지 
+
+# 에러메세지 ------------------------------------------------------
 INFO:     Will watch for changes in these directories: ['D:\\Booth_Talk\\backend']
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
 INFO:     Started reloader process [24380] using WatchFiles
@@ -44,6 +45,7 @@ Traceback (most recent call last):
 ModuleNotFoundError: No module named 'openai'
 
 
+------------------------------------------------
 # 조치 : 
 (backend) PS D:\Booth_Talk\backend> uv install openai
 (backend) PS D:\Booth_Talk\backend> uvicorn main:app --reload
