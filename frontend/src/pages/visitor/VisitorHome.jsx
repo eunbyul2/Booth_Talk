@@ -39,6 +39,8 @@ export default function VisitorHome() {
   const mapRef = useRef(null)
   const [mapReady, setMapReady] = useState(false)
   const [userPos, setUserPos] = useState(null)
+  const [hoveredEventId, setHoveredEventId] = useState(null)
+  const eventMarkersRef = useRef([])
 
   // Mock events for map markers and list under the map
   const events = [
@@ -46,25 +48,56 @@ export default function VisitorHome() {
       id: 1,
       name: 'AI Summit Seoul & EXPO',
       venue: '코엑스 그랜드볼룸',
+      address: '서울 강남구 영동대로 513',
       datetime: '2025-11-10 14:00',
+      description: 'AI 기술의 최신 트렌드를 한눈에',
       lat: 37.5113,
-      lng: 127.0592
+      lng: 127.0592,
+      image: 'https://picsum.photos/seed/ai-summit/400/200'
     },
     {
       id: 2,
       name: '전자제품 박람회',
       venue: '킨텍스 1홀',
+      address: '경기 고양시 일산서구 킨텍스로 217-60',
       datetime: '2025-11-15 10:00',
+      description: '최신 전자제품과 혁신 기술 전시',
       lat: 37.6688,
-      lng: 126.7459
+      lng: 126.7459,
+      image: 'https://picsum.photos/seed/electronics/400/200'
     },
     {
       id: 3,
       name: '바이오 테크 컨퍼런스',
       venue: '코엑스 B홀',
+      address: '서울 강남구 영동대로 513',
       datetime: '2025-11-12 13:00',
+      description: '바이오 기술의 미래를 논하다',
       lat: 37.5115,
-      lng: 127.0590
+      lng: 127.0590,
+      image: 'https://picsum.photos/seed/biotech/400/200'
+    },
+    {
+      id: 4,
+      name: '스마트 모빌리티 쇼',
+      venue: '벡스코 제1전시장',
+      address: '부산 해운대구 APEC로 55',
+      datetime: '2025-11-18 11:00',
+      description: '미래 모빌리티의 모든 것',
+      lat: 35.1689,
+      lng: 129.1361,
+      image: 'https://picsum.photos/seed/mobility/400/200'
+    },
+    {
+      id: 5,
+      name: '푸드테크 페스티벌',
+      venue: '킨텍스 2홀',
+      address: '경기 고양시 일산서구 킨텍스로 217-60',
+      datetime: '2025-11-20 09:00',
+      description: '식품 기술의 혁신을 경험하세요',
+      lat: 37.6690,
+      lng: 126.7461,
+      image: 'https://picsum.photos/seed/foodtech/400/200'
     }
   ]
 
@@ -115,62 +148,74 @@ export default function VisitorHome() {
           }
         })
 
-        // Venue markers (전시장)
-        const venueMarkers = VENUES.map((venue) => {
-          const marker = new google.maps.Marker({
-            position: { lat: venue.lat, lng: venue.lng },
-            map: mapInstance,
-            title: venue.name, // 마우스 오버 시 전시장 이름만 표시
-            icon: {
-              path: google.maps.SymbolPath.CIRCLE,
-              scale: 12,
-              fillColor: '#10b981',
-              fillOpacity: 0.9,
-              strokeWeight: 3,
-              strokeColor: '#ffffff'
-            },
-            label: {
-              text: venue.image,
-              fontSize: '18px',
-            }
-          })
-          marker.addListener('click', () => {
-            // 내 위치와의 거리 계산
-            let distanceText = ''
-            if (pos && pos.lat && pos.lng) {
-              const R = 6371 // 지구 반지름 (km)
-              const dLat = (venue.lat - pos.lat) * Math.PI / 180
-              const dLng = (venue.lng - pos.lng) * Math.PI / 180
-              const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                        Math.cos(pos.lat * Math.PI / 180) * Math.cos(venue.lat * Math.PI / 180) *
-                        Math.sin(dLng/2) * Math.sin(dLng/2)
-              const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
-              const distance = R * c
-              
-              if (distance < 1) {
-                distanceText = `📍 내 위치에서 ${Math.round(distance * 1000)}m`
-              } else {
-                distanceText = `📍 내 위치에서 ${distance.toFixed(1)}km`
-              }
-            }
+        // Venue markers (전시장) - 삭제됨
 
+        // Event markers (이벤트) - 각 행사의 이미지를 원형 마커로 사용
+        const eventMarkers = events.map((ev) => {
+          // Create circular clipped image marker
+          const size = 8 // 1/3로 줄임 (25 -> 8)
+          
+          const marker = new google.maps.Marker({
+            position: { lat: ev.lat, lng: ev.lng },
+            map: mapInstance,
+            title: ev.name,
+            icon: {
+              url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
+                <svg width="${size*2}" height="${size*2}" xmlns="http://www.w3.org/2000/svg">
+                  <defs>
+                    <clipPath id="circle-${ev.id}">
+                      <circle cx="${size}" cy="${size}" r="${size}"/>
+                    </clipPath>
+                  </defs>
+                  <circle cx="${size}" cy="${size}" r="${size}" fill="white"/>
+                  <image href="${ev.image}" width="${size*2}" height="${size*2}" clip-path="url(#circle-${ev.id})"/>
+                  <circle cx="${size}" cy="${size}" r="${size}" fill="none" stroke="white" stroke-width="2"/>
+                </svg>
+              `)}`,
+              scaledSize: new google.maps.Size(size*2, size*2),
+              anchor: new google.maps.Point(size, size)
+            },
+            zIndex: 100
+          })
+
+          // Add click listener to show InfoWindow and navigate
+          marker.addListener('click', () => {
             infoWindow.setContent(`
-              <div style="min-width:220px; padding:12px">
-                <div style="font-size:24px; margin-bottom:8px">${venue.image}</div>
-                <strong style="font-size:16px">${venue.name}</strong><br/>
-                <span style="color:#10b981; font-weight:600; margin-top:4px; display:inline-block">${venue.activeEvents}개 이벤트 진행 중</span><br/>
-                ${distanceText ? `<span style="color:#666; font-size:14px; margin-top:4px; display:inline-block">${distanceText}</span>` : ''}
+              <div style="min-width: 250px; padding: 12px;">
+                <img src="${ev.image}" alt="${ev.name}" style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px; margin-bottom: 8px;" />
+                <strong style="font-size: 16px; display: block; margin-bottom: 4px;">${ev.name}</strong>
+                <p style="color: #666; font-size: 14px; margin: 4px 0;">${ev.description}</p>
+                <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #eee;">
+                  <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+                    <span style="font-size: 18px;">📍</span>
+                    <span style="font-size: 13px; color: #666;">${ev.venue}</span>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 6px;">
+                    <span style="font-size: 18px;">📅</span>
+                    <span style="font-size: 13px; color: #666;">${ev.datetime}</span>
+                  </div>
+                </div>
+                <button onclick="window.location.href='/visitor/event/${ev.id}'" style="
+                  margin-top: 12px;
+                  width: 100%;
+                  padding: 8px;
+                  background: #2563eb;
+                  color: white;
+                  border: none;
+                  border-radius: 6px;
+                  cursor: pointer;
+                  font-weight: 600;
+                ">상세보기 →</button>
               </div>
             `)
             infoWindow.open({ anchor: marker, map: mapInstance })
           })
-          return marker
+
+          return { marker, eventId: ev.id }
         })
 
-        // Event markers (이벤트) - 제거됨
-        // const eventMarkers = events.map((ev) => { ... })
-
-        markers = [...venueMarkers]
+        eventMarkersRef.current = eventMarkers
+        markers = [...eventMarkers.map(em => em.marker)]
       } catch (e) {
         // eslint-disable-next-line no-console
         console.error(e)
@@ -183,6 +228,38 @@ export default function VisitorHome() {
       markers = []
     }
   }, [])
+
+  // Handle hover effect on event markers
+  useEffect(() => {
+    if (eventMarkersRef.current.length === 0) return
+
+    eventMarkersRef.current.forEach(({ marker, eventId }) => {
+      const event = events.find(e => e.id === eventId)
+      if (!event) return
+      
+      const normalSize = 8
+      const hoverSize = 12 // 호버 시 약간 크게
+      const size = hoveredEventId === eventId ? hoverSize : normalSize
+      
+      marker.setIcon({
+        url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
+          <svg width="${size*2}" height="${size*2}" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <clipPath id="circle-${eventId}">
+                <circle cx="${size}" cy="${size}" r="${size}"/>
+              </clipPath>
+            </defs>
+            <circle cx="${size}" cy="${size}" r="${size}" fill="white"/>
+            <image href="${event.image}" width="${size*2}" height="${size*2}" clip-path="url(#circle-${eventId})"/>
+            <circle cx="${size}" cy="${size}" r="${size}" fill="none" stroke="${hoveredEventId === eventId ? '#2563eb' : 'white'}" stroke-width="${hoveredEventId === eventId ? '3' : '2'}"/>
+          </svg>
+        `)}`,
+        scaledSize: new window.google.maps.Size(size*2, size*2),
+        anchor: new window.google.maps.Point(size, size)
+      })
+      marker.setZIndex(hoveredEventId === eventId ? 1000 : 100)
+    })
+  }, [hoveredEventId, events])
   
   return (
     <div className="visitor-home">
@@ -233,48 +310,108 @@ export default function VisitorHome() {
         </div>
       </div>
 
-      
-
-      {/* Venue Selection */}
-      <div className="venues-section">
+      {/* Event List - Vertical List Format */}
+      <div className="venues-section" style={{ paddingTop: '2rem' }}>
         <div className="container">
-          <h2 className="section-title">전시장 선택</h2>
-          <p className="section-subtitle">원하는 전시장을 선택하여 이벤트를 확인하세요</p>
-          <div className="venues-grid">
-            {VENUES.map(venue => (
+          <h2 className="section-title">진행 예정 행사</h2>
+          <p className="section-subtitle">지도의 마커를 클릭하거나 행사를 선택하여 상세 정보를 확인하세요</p>
+          <div style={{ 
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '1rem',
+            marginTop: '1.5rem'
+          }}>
+            {events.map(event => (
               <div 
-                key={venue.id} 
-                className="venue-card"
-                onClick={() => navigate(`/visitor/events?venue=${venue.id}`)}
+                key={event.id}
+                style={{
+                  display: 'flex',
+                  background: 'white',
+                  borderRadius: '12px',
+                  overflow: 'hidden',
+                  boxShadow: hoveredEventId === event.id 
+                    ? '0 4px 16px rgba(37, 99, 235, 0.3)' 
+                    : '0 2px 8px rgba(0,0,0,0.1)',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease',
+                  border: hoveredEventId === event.id ? '2px solid #2563eb' : '2px solid #e5e7eb',
+                  height: '140px'
+                }}
+                onClick={() => navigate(`/visitor/event/${event.id}`)}
+                onMouseEnter={() => setHoveredEventId(event.id)}
+                onMouseLeave={() => setHoveredEventId(null)}
               >
-                <div className="venue-image">{venue.image}</div>
-                <h3 className="venue-name">{venue.name}</h3>
-                <div className="venue-location">
-                  <MapPin size={16} />
-                  <span>{venue.location}</span>
+                {/* Event Image */}
+                <div style={{ 
+                  width: '180px',
+                  minWidth: '180px',
+                  overflow: 'hidden',
+                  position: 'relative'
+                }}>
+                  <img 
+                    src={event.image} 
+                    alt={event.name}
+                    style={{ 
+                      width: '100%', 
+                      height: '100%', 
+                      objectFit: 'cover'
+                    }}
+                  />
                 </div>
-                <div className="venue-events">
-                  <Calendar size={16} />
-                  <span>{venue.activeEvents}개 진행 중</span>
+                
+                {/* Event Info */}
+                <div style={{ 
+                  flex: 1,
+                  padding: '1.25rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between'
+                }}>
+                  <div>
+                    <h3 style={{ 
+                      fontSize: '1.25rem', 
+                      fontWeight: '700', 
+                      marginBottom: '0.5rem',
+                      color: '#1f2937'
+                    }}>
+                      {event.name}
+                    </h3>
+                    <p style={{ 
+                      fontSize: '0.875rem', 
+                      color: '#6b7280',
+                      marginBottom: '0.75rem',
+                      lineHeight: '1.4'
+                    }}>
+                      {event.description}
+                    </p>
+                  </div>
+                  
+                  <div style={{ 
+                    display: 'flex',
+                    gap: '1.5rem',
+                    fontSize: '0.875rem',
+                    color: '#4b5563'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <MapPin size={16} style={{ color: '#10b981', flexShrink: 0 }} />
+                      <span>{event.venue}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <Calendar size={16} style={{ color: '#f59e0b', flexShrink: 0 }} />
+                      <span>{event.datetime}</span>
+                    </div>
+                  </div>
                 </div>
-                <button className="btn-view">이벤트 보기</button>
               </div>
             ))}
           </div>
           
-          <div className="quick-links">
+          <div className="quick-links" style={{ marginTop: '2rem' }}>
             <button 
               className="quick-link-btn"
               onClick={() => navigate('/visitor/events')}
             >
               모든 이벤트 보기
-            </button>
-            <button 
-              className="quick-link-btn"
-              onClick={() => navigate('/visitor/events?nearby=true')}
-            >
-              <MapPin size={18} />
-              내 주변 이벤트
             </button>
           </div>
         </div>
