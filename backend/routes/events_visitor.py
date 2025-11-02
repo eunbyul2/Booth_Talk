@@ -6,6 +6,8 @@
 from datetime import datetime, timedelta, date
 from typing import Optional, List
 from fastapi import APIRouter, Depends, Query, HTTPException
+import os
+from dotenv import load_dotenv
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
 from pydantic import BaseModel, Field
@@ -252,6 +254,23 @@ async def get_event_detail(
         image_url=event.image_url,
         **event_info
     )
+
+
+@router.get("/visitor/maps-api-key")
+@router.get("/visitor/maps_api_key")
+@router.get("/maps-api-key")
+async def get_google_maps_api_key():
+    """프론트엔드에서 사용할 Google Maps API 키를 반환합니다.
+
+    키는 backend/.env 파일의 GOOGLE_MAPS_API_KEY 항목에서 로드됩니다.
+    보안을 위해 키 사용 도메인을 Google Cloud 콘솔에서 "HTTP referrer"로 제한하세요.
+    """
+    # .env 로드 (이미 로드되어 있다면 중복 호출해도 무해)
+    load_dotenv()
+    api_key = os.getenv("GOOGLE_MAPS_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=404, detail="Google Maps API 키가 설정되지 않았습니다.")
+    return {"key": api_key}
 
 
 @router.get("/visitor/events/stats")

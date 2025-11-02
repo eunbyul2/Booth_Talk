@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search, Filter, Calendar, MapPin, Heart } from 'lucide-react'
 import './EventList.css'
@@ -44,6 +44,7 @@ export default function EventList() {
   const [searchTerm, setSearchTerm] = useState('')
   const [filterDate, setFilterDate] = useState('')
   const [favorites, setFavorites] = useState([])
+  const [sortOrder, setSortOrder] = useState('asc') // asc: 시간 빠른 순, desc: 시간 느린 순
   
   const toggleFavorite = (eventId) => {
     if (favorites.includes(eventId)) {
@@ -53,12 +54,34 @@ export default function EventList() {
     }
   }
   
-  const filteredEvents = MOCK_EVENTS.filter(event => {
-    const matchesSearch = event.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         event.company.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesDate = !filterDate || event.date === filterDate
-    return matchesSearch && matchesDate
-  })
+  // 현재 시간 기준으로 지난 이벤트 숨김 + 검색/날짜 필터 + 정렬
+  const filteredEvents = useMemo(() => {
+    const now = new Date()
+
+    const toDateTime = (e) => {
+      // Combine date and time as local time
+      const iso = `${e.date}T${e.time.length === 5 ? e.time + ':00' : e.time}`
+      return new Date(iso)
+    }
+
+    const upcoming = MOCK_EVENTS
+      .map(e => ({ ...e, __dt: toDateTime(e) }))
+      .filter(e => e.__dt.getTime() >= now.getTime())
+
+    const searched = upcoming.filter(event => {
+      const matchesSearch = event.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           event.company.toLowerCase().includes(searchTerm.toLowerCase())
+      const matchesDate = !filterDate || event.date === filterDate
+      return matchesSearch && matchesDate
+    })
+
+    const sorted = [...searched].sort((a, b) => {
+      const diff = a.__dt.getTime() - b.__dt.getTime()
+      return sortOrder === 'asc' ? diff : -diff
+    })
+
+    return sorted
+  }, [searchTerm, filterDate, sortOrder])
   
   return (
     <div className="event-list-page">
@@ -100,7 +123,18 @@ export default function EventList() {
         <div className="results-info">
           <span>{filteredEvents.length}개의 이벤트</span>
         </div>
-        
+
+        {/* 정렬 선택 */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' }}>
+          <div className="filter-box" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Filter size={18} />
+            <select value={sortOrder} onChange={(e) => setSortOrder(e.target.value)}>
+              <option value="asc">시간 빠른 순</option>
+              <option value="desc">시간 느린 순</option>
+            </select>
+          </div>
+        </div>
+
         <div className="events-grid">
           {filteredEvents.map(event => (
             <div 

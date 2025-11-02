@@ -1,10 +1,12 @@
 """
 전시회 플랫폼 메인 서버
 """
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from routes import auth, events, events_visitor
+import os
+from dotenv import load_dotenv
 
 app = FastAPI(
     title="전시회 플랫폼 API",
@@ -20,6 +22,19 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Google Maps API key endpoint - 라우터보다 먼저 등록
+load_dotenv()
+
+@app.get("/api/visitor/maps-api-key")
+@app.get("/api/maps-api-key")
+@app.get("/maps-api-key")
+def get_maps_api_key():
+    """Google Maps API 키 반환"""
+    key = os.getenv("GOOGLE_MAPS_API_KEY")
+    if not key:
+        raise HTTPException(status_code=404, detail="GOOGLE_MAPS_API_KEY not set in backend/.env")
+    return {"key": key}
 
 # 라우터 등록
 app.include_router(auth.router, prefix="/api/auth", tags=["인증"])
