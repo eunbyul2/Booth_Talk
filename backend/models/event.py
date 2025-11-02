@@ -29,6 +29,8 @@ class Event(Base):
     event_type = Column(String(100), index=True)
     booth_number = Column(String(50))
     location = Column(String(255))
+    latitude = Column(String(50))
+    longitude = Column(String(50))
 
     start_date = Column(Date, nullable=False, index=True)
     end_date = Column(Date, index=True)

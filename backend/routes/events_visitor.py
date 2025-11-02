@@ -32,6 +32,8 @@ class EventResponse(BaseModel):
     description: Optional[str] = None
     booth_number: Optional[str] = None
     image_url: Optional[str] = None
+    latitude: Optional[str] = None
+    longitude: Optional[str] = None
     is_available_now: bool = Field(description="현재 입장 가능 여부")
     available_hours: str = Field(description="입장 가능 시간")
     days_until_start: int
@@ -97,6 +99,7 @@ async def search_available_events(
     location: Optional[str] = Query(None, description="장소 필터"),
     company_name: Optional[str] = Query(None, description="회사명 검색"),
     only_available: bool = Query(True, description="현재/지정시간 입장 가능한 이벤트만"),
+    sort_by: Optional[str] = Query("date_asc", description="정렬 방식: date_asc(시간 빠른 순), date_desc(시간 느린 순)"),
     limit: int = Query(50, le=100),
     offset: int = Query(0)
 ):
@@ -149,6 +152,12 @@ async def search_available_events(
     if company_name:
         query = query.filter(Company.company_name.ilike(f"%{company_name}%"))
     
+    # 정렬
+    if sort_by == "date_desc":
+        query = query.order_by(Event.start_date.desc(), Event.start_time.desc())
+    else:  # date_asc (default)
+        query = query.order_by(Event.start_date.asc(), Event.start_time.asc())
+    
     # 전체 개수 계산
     total_count = query.count()
     
@@ -189,6 +198,8 @@ async def search_available_events(
             description=event.description,
             booth_number=event.booth_number,
             image_url=event.image_url,
+            latitude=event.latitude,
+            longitude=event.longitude,
             **event_info
         )
         event_responses.append(event_response)
@@ -252,6 +263,8 @@ async def get_event_detail(
         description=event.description,
         booth_number=event.booth_number,
         image_url=event.image_url,
+        latitude=event.latitude,
+        longitude=event.longitude,
         **event_info
     )
 
