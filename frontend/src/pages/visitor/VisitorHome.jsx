@@ -1,6 +1,8 @@
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { MapPin, Calendar, Search } from 'lucide-react'
 import './VisitorHome.css'
+import { loadGoogleMaps } from '../../utils/loadGoogleMaps'
 
 const VENUES = [
   { 
@@ -8,26 +10,179 @@ const VENUES = [
     name: '코엑스', 
     location: '서울 강남구',
     image: '🏢',
-    activeEvents: 12
+    activeEvents: 12,
+    lat: 37.5113,
+    lng: 127.0592
   },
   { 
     id: 2, 
     name: '킨텍스', 
     location: '경기 고양시',
     image: '🏛️',
-    activeEvents: 8
+    activeEvents: 8,
+    lat: 37.6688,
+    lng: 126.7459
   },
   { 
     id: 3, 
     name: '벡스코', 
     location: '부산 해운대구',
     image: '🏗️',
-    activeEvents: 5
+    activeEvents: 5,
+    lat: 35.1689,
+    lng: 129.1361
   }
 ]
 
 export default function VisitorHome() {
   const navigate = useNavigate()
+  const mapRef = useRef(null)
+  const [mapReady, setMapReady] = useState(false)
+  const [userPos, setUserPos] = useState(null)
+
+  // Mock events for map markers and list under the map
+  const events = [
+    {
+      id: 1,
+      name: 'AI Summit Seoul & EXPO',
+      venue: '코엑스 그랜드볼룸',
+      datetime: '2025-11-10 14:00',
+      lat: 37.5113,
+      lng: 127.0592
+    },
+    {
+      id: 2,
+      name: '전자제품 박람회',
+      venue: '킨텍스 1홀',
+      datetime: '2025-11-15 10:00',
+      lat: 37.6688,
+      lng: 126.7459
+    },
+    {
+      id: 3,
+      name: '바이오 테크 컨퍼런스',
+      venue: '코엑스 B홀',
+      datetime: '2025-11-12 13:00',
+      lat: 37.5115,
+      lng: 127.0590
+    }
+  ]
+
+  useEffect(() => {
+    let mapInstance
+    let infoWindow
+    let markers = []
+
+    async function init() {
+      try {
+        // Google Maps API key must be set in .env as VITE_GOOGLE_MAPS_API_KEY
+        const google = await loadGoogleMaps()
+
+        // Geolocation: center on user if available
+        const defaultCenter = { lat: 37.5665, lng: 126.9780 } // Seoul fallback
+        const pos = await new Promise((resolve) => {
+          if (!navigator.geolocation) return resolve(defaultCenter)
+          navigator.geolocation.getCurrentPosition(
+            (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
+            () => resolve(defaultCenter),
+            { enableHighAccuracy: true, timeout: 5000 }
+          )
+        })
+        setUserPos(pos)
+
+        mapInstance = new google.maps.Map(mapRef.current, {
+          center: pos,
+          zoom: 11,
+          mapId: 'DEMO_MAP',
+          fullscreenControl: false,
+        })
+        setMapReady(true)
+
+        infoWindow = new google.maps.InfoWindow()
+
+        // Add a marker for user position
+        new google.maps.Marker({
+          position: pos,
+          map: mapInstance,
+          title: '내 위치',
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: 8,
+            fillColor: '#2563eb',
+            fillOpacity: 1,
+            strokeWeight: 2,
+            strokeColor: '#ffffff'
+          }
+        })
+
+        // Venue markers (전시장)
+        const venueMarkers = VENUES.map((venue) => {
+          const marker = new google.maps.Marker({
+            position: { lat: venue.lat, lng: venue.lng },
+            map: mapInstance,
+            title: venue.name, // 마우스 오버 시 전시장 이름만 표시
+            icon: {
+              path: google.maps.SymbolPath.CIRCLE,
+              scale: 12,
+              fillColor: '#10b981',
+              fillOpacity: 0.9,
+              strokeWeight: 3,
+              strokeColor: '#ffffff'
+            },
+            label: {
+              text: venue.image,
+              fontSize: '18px',
+            }
+          })
+          marker.addListener('click', () => {
+            // 내 위치와의 거리 계산
+            let distanceText = ''
+            if (pos && pos.lat && pos.lng) {
+              const R = 6371 // 지구 반지름 (km)
+              const dLat = (venue.lat - pos.lat) * Math.PI / 180
+              const dLng = (venue.lng - pos.lng) * Math.PI / 180
+              const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                        Math.cos(pos.lat * Math.PI / 180) * Math.cos(venue.lat * Math.PI / 180) *
+                        Math.sin(dLng/2) * Math.sin(dLng/2)
+              const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
+              const distance = R * c
+              
+              if (distance < 1) {
+                distanceText = `📍 내 위치에서 ${Math.round(distance * 1000)}m`
+              } else {
+                distanceText = `📍 내 위치에서 ${distance.toFixed(1)}km`
+              }
+            }
+
+            infoWindow.setContent(`
+              <div style="min-width:220px; padding:12px">
+                <div style="font-size:24px; margin-bottom:8px">${venue.image}</div>
+                <strong style="font-size:16px">${venue.name}</strong><br/>
+                <span style="color:#10b981; font-weight:600; margin-top:4px; display:inline-block">${venue.activeEvents}개 이벤트 진행 중</span><br/>
+                ${distanceText ? `<span style="color:#666; font-size:14px; margin-top:4px; display:inline-block">${distanceText}</span>` : ''}
+              </div>
+            `)
+            infoWindow.open({ anchor: marker, map: mapInstance })
+          })
+          return marker
+        })
+
+        // Event markers (이벤트) - 제거됨
+        // const eventMarkers = events.map((ev) => { ... })
+
+        markers = [...venueMarkers]
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error(e)
+      }
+    }
+
+    init()
+    return () => {
+      // no cleanup needed for basic map usage
+      markers = []
+    }
+  }, [])
   
   return (
     <div className="visitor-home">
@@ -67,12 +222,24 @@ export default function VisitorHome() {
         </div>
       </div>
       
+      {/* Map Section */}
+      <div className="venues-section">
+        <div className="container">
+          <h2 className="section-title">내 주변 전시장 지도</h2>
+          <p className="section-subtitle">브라우저 위치 권한을 허용하면 내 위치를 기준으로 표시됩니다</p>
+          <div style={{ height: 420, borderRadius: 16, overflow: 'hidden', boxShadow: 'var(--shadow)' }}>
+            <div ref={mapRef} style={{ width: '100%', height: '100%' }} />
+          </div>
+        </div>
+      </div>
+
+      
+
       {/* Venue Selection */}
       <div className="venues-section">
         <div className="container">
           <h2 className="section-title">전시장 선택</h2>
           <p className="section-subtitle">원하는 전시장을 선택하여 이벤트를 확인하세요</p>
-          
           <div className="venues-grid">
             {VENUES.map(venue => (
               <div 
