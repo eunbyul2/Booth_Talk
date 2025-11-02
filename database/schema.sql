@@ -500,17 +500,29 @@ COMMENT ON VIEW v_admin_statistics IS '관리자 대시보드용 통계 뷰';
 -- 샘플 데이터 입력
 -- ============================================
 
--- 샘플 기업 1
-INSERT INTO companies (company_name, username, password_hash, created_by) VALUES
-('테크코퍼레이션', 'techcorp', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5NU7eJR0ZCWE6', 1);
+-- 샘플 기업 5개 (비밀번호: root)
+INSERT INTO companies (company_name, username, password_hash, business_number, email, phone, address, website_url, created_by) VALUES
+('테크코퍼레이션', 'techcorp', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5NU7eJR0ZCWE6', '123-45-67890', 'contact@techcorp.com', '02-1234-5678', '서울특별시 강남구 테헤란로 123', 'https://techcorp.com', 1),
+('글로벌이노베이션', 'globalinno', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5NU7eJR0ZCWE6', '234-56-78901', 'info@globalinno.com', '02-2345-6789', '서울특별시 서초구 서초대로 456', 'https://globalinno.com', 1),
+('스마트솔루션즈', 'smartsol', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5NU7eJR0ZCWE6', '345-67-89012', 'hello@smartsol.com', '031-3456-7890', '경기도 성남시 분당구 판교로 789', 'https://smartsol.com', 1),
+('퓨처테크놀로지', 'futuretech', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5NU7eJR0ZCWE6', '456-78-90123', 'contact@futuretech.com', '051-4567-8901', '부산광역시 해운대구 센텀중앙로 101', 'https://futuretech.com', 1),
+('디지털크리에이티브', 'digitalcreative', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5NU7eJR0ZCWE6', '567-89-01234', 'info@digitalcreative.com', '02-5678-9012', '서울특별시 마포구 월드컵북로 202', 'https://digitalcreative.com', 1);
 
--- 샘플 이벤트
-INSERT INTO events (company_id, venue_id, event_name, booth_number, event_date, event_time, description, category) VALUES
-(1, 1, 'AI Summit 2025', 'B-123', '2025-11-10', '10:00:00', '최신 AI 기술을 만나보세요', 'IT/기술');
+-- 샘플 이벤트 5개
+INSERT INTO events (company_id, venue_id, event_name, booth_number, event_date, event_time, end_date, end_time, description, participation_method, benefits, capacity, category, tags, is_featured) VALUES
+(1, 1, 'AI Summit 2025', 'A-101', '2025-11-10', '10:00:00', '2025-11-12', '18:00:00', '최신 AI 기술과 머신러닝 솔루션을 만나보세요. 실시간 데모와 전문가 상담이 제공됩니다.', '현장 방문 및 사전 등록', '무료 굿즈, 기술 자료집 제공', 200, 'IT/기술', ARRAY['AI', '머신러닝', '기술'], TRUE),
+(2, 2, '글로벌 비즈니스 엑스포', 'B-205', '2025-11-15', '09:00:00', '2025-11-17', '19:00:00', '해외 진출을 위한 비즈니스 네트워킹 행사. 글로벌 파트너사와의 1:1 미팅 기회를 제공합니다.', '사전 예약 필수', '무료 컨설팅, 네트워킹 디너', 150, '비즈니스', ARRAY['글로벌', '네트워킹', '수출'], TRUE),
+(3, 1, '스마트홈 페스티벌', 'C-312', '2025-11-20', '11:00:00', '2025-11-22', '20:00:00', 'IoT 기반 스마트홈 솔루션 체험관. 최신 스마트 가전과 홈 오토메이션 시스템을 직접 체험해보세요.', '자유 관람', '체험 이벤트 참여 시 경품 추첨', 300, 'IT/기술', ARRAY['IoT', '스마트홈', '가전'], FALSE),
+(4, 3, '미래 모빌리티 쇼', 'D-418', '2025-11-25', '10:30:00', '2025-11-27', '17:30:00', '전기차, 자율주행, 미래 교통 솔루션 전시회. 시승 이벤트와 기술 세미나가 진행됩니다.', '현장 등록 가능', '시승 참여자 커피 쿠폰 제공', 250, '자동차/모빌리티', ARRAY['전기차', '자율주행', '모빌리티'], TRUE),
+(5, 4, '크리에이티브 디자인 위크', 'E-520', '2025-12-01', '13:00:00', '2025-12-03', '21:00:00', '디자이너와 크리에이터를 위한 축제. 워크샵, 포트폴리오 리뷰, 작품 전시가 함께 진행됩니다.', '사전 등록 및 현장 등록', '워크샵 무료 참여, 작품집 제공', 180, '디자인/예술', ARRAY['디자인', '크리에이티브', '워크샵'], FALSE);
 
--- 샘플 담당자
-INSERT INTO event_managers (event_id, manager_name, manager_phone, manager_email, manager_position, is_primary, added_by) VALUES
-(1, '홍길동', '010-1234-5678', 'hong@techcorp.com', '마케팅 팀장', TRUE, 1);
+-- 샘플 담당자 5개
+INSERT INTO event_managers (event_id, manager_name, manager_phone, manager_email, manager_position, manager_department, notes, is_primary, added_by) VALUES
+(1, '홍길동', '010-1234-5678', 'hong@techcorp.com', '마케팅 팀장', '마케팅부', 'AI 전문가, 기술 설명 가능', TRUE, 1),
+(2, '김영희', '010-2345-6789', 'kim@globalinno.com', '해외사업 본부장', '해외사업부', '영어, 중국어 가능', TRUE, 1),
+(3, '이철수', '010-3456-7890', 'lee@smartsol.com', '제품 기획자', '제품기획팀', 'IoT 제품 전문가', TRUE, 1),
+(4, '박민수', '010-4567-8901', 'park@futuretech.com', '기술영업 이사', '영업부', '자동차 산업 경력 10년', TRUE, 1),
+(5, '정수진', '010-5678-9012', 'jung@digitalcreative.com', '크리에이티브 디렉터', '디자인팀', '국제 디자인 어워드 수상 경력', TRUE, 1);
 
 -- ============================================
 -- 권한 설정 (선택사항)
