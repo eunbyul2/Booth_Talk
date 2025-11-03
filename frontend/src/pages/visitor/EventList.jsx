@@ -1,87 +1,106 @@
-import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Search, Filter, Calendar, MapPin, Heart } from 'lucide-react'
+import { useMemo, useState, useEffect } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Search, Filter, Calendar, MapPin, Heart, Clock, ChevronRight } from 'lucide-react'
 import './EventList.css'
 
+// 샘플 전시회 정보
+const MOCK_EXHIBITION = {
+  id: 1,
+  name: '2025 코엑스 푸드위크',
+  code: 'S0902',
+  startDate: '2025-10-29',
+  endDate: '2025-11-01',
+  hallInfo: '제1전시관 A, B, C',
+  venueName: '코엑스',
+  location: '서울'
+}
+
+// 샘플 이벤트 데이터 (DB schema 기반)
 const MOCK_EVENTS = [
   {
     id: 1,
-    name: 'AI Summit Seoul & EXPO',
-    company: 'TechCorp',
-    booth: 'B-123',
-    date: '2025-11-10',
-    time: '14:00',
-    image: 'https://picsum.photos/seed/ai-summit/400/200',
-    venue: '코엑스 그랜드볼룸',
-    address: '서울 강남구 영동대로 513',
-    description: 'AI 기술의 최신 트렌드를 한눈에 확인하고, 전문가들과 네트워킹하세요',
-    benefits: '기념품 증정, 추첨 이벤트',
-    status: 'upcoming'
+    eventName: '[S0902] 농업회사법인(주)해남진호드모',
+    companyName: '농업회사법인',
+    boothNumber: 'B5001',
+    timeSlots: ['11:00', '13:00', '14:00', '15:00'],
+    description: '당일 조달로 시작',
+    benefits: '무료 시식, 할인 쿠폰 제공',
+    posterImageUrl: 'https://via.placeholder.com/120x120/FF6B6B/FFFFFF?text=농업회사법인',
+    category: '식품',
+    tags: ['농산물', '시식']
   },
   {
     id: 2,
-    name: '전자제품 박람회',
-    company: 'ElecTech',
-    booth: 'A-45',
-    date: '2025-11-15',
-    time: '10:00',
-    image: 'https://picsum.photos/seed/electronics/400/200',
-    venue: '킨텍스 1홀',
-    address: '경기 고양시 일산서구 킨텍스로 217-60',
-    description: '최신 전자제품과 혁신 기술을 직접 체험하고 특별 할인 혜택을 받아보세요',
-    benefits: '할인 쿠폰 제공',
-    status: 'upcoming'
+    eventName: '[B5201] (주)대일피비',
+    companyName: '(주)대일피비',
+    boothNumber: 'B5201',
+    timeSlots: ['11:00', '13:00', '14:00', '15:00'],
+    description: '세계각국의 맛을 시음',
+    benefits: '무료 시식, 경품 추첨',
+    posterImageUrl: 'https://via.placeholder.com/120x120/4ECDC4/FFFFFF?text=대일피비',
+    category: '식품',
+    tags: ['수입식품', '시식']
   },
   {
     id: 3,
-    name: '바이오 테크 컨퍼런스',
-    company: 'BioInnovate',
-    booth: 'C-78',
-    date: '2025-11-12',
-    time: '13:00',
-    image: 'https://picsum.photos/seed/biotech/400/200',
-    venue: '코엑스 B홀',
-    address: '서울 강남구 영동대로 513',
-    description: '바이오 기술의 미래를 논하는 국제 컨퍼런스에 참여하세요',
-    benefits: '무료 샘플 증정',
-    status: 'upcoming'
+    eventName: '[특별관] 헬스클럽레저 컴퍼니',
+    companyName: '특별한헬스클럽',
+    boothNumber: 'A-312',
+    timeSlots: ['10:00', '12:00', '14:00', '16:00'],
+    description: '헬시플레저 라이프 공유소',
+    benefits: '건강 상담, 샘플 증정',
+    posterImageUrl: 'https://via.placeholder.com/120x120/95E1D3/FFFFFF?text=헬스클럽',
+    category: '건강/웰빙',
+    tags: ['건강식품', '웰빙']
   },
   {
     id: 4,
-    name: '스마트 모빌리티 쇼',
-    company: 'MobilityTech',
-    booth: 'D-12',
-    date: '2025-11-18',
-    time: '11:00',
-    image: 'https://picsum.photos/seed/mobility/400/200',
-    venue: '벡스코 제1전시장',
-    address: '부산 해운대구 APEC로 55',
-    description: '미래 모빌리티의 모든 것을 경험하고 시승 기회를 얻으세요',
-    benefits: '시승 체험, 경품 증정',
-    status: 'upcoming'
+    eventName: '[B5001] 협찬투어',
+    companyName: '협찬투어',
+    boothNumber: 'B5001',
+    timeSlots: ['10:00', '12:00', '14:00', '16:00'],
+    description: '스페인 타파스 문화 체험 및 올리브 탐방',
+    benefits: '여행 상담, 할인 쿠폰',
+    posterImageUrl: 'https://via.placeholder.com/120x120/F38181/FFFFFF?text=협찬투어',
+    category: '여행/문화',
+    tags: ['여행', '문화체험']
   },
   {
     id: 5,
-    name: '푸드테크 페스티벌',
-    company: 'FoodInnovation',
-    booth: 'E-89',
-    date: '2025-11-20',
-    time: '09:00',
-    image: 'https://picsum.photos/seed/foodtech/400/200',
-    venue: '킨텍스 2홀',
-    address: '경기 고양시 일산서구 킨텍스로 217-60',
-    description: '식품 기술의 혁신을 경험하고 맛있는 시식을 즐기세요',
-    benefits: '무료 시식, 특별 할인',
-    status: 'upcoming'
+    eventName: '[S0902] 농업회사법인(주)해남진호드모',
+    companyName: '농업회사법인',
+    boothNumber: 'S0902',
+    timeSlots: ['11:00', '13:00', '14:00', '15:00'],
+    description: '당일 조달로 시작',
+    benefits: '무료 시식, 기념품 증정',
+    posterImageUrl: 'https://via.placeholder.com/120x120/AA96DA/FFFFFF?text=농업회사법인',
+    category: '식품',
+    tags: ['농산물', '시식']
   }
 ]
 
 export default function EventList() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const exhibitionId = searchParams.get('exhibition_id')
+  
   const [searchTerm, setSearchTerm] = useState('')
-  const [filterDate, setFilterDate] = useState('')
   const [favorites, setFavorites] = useState([])
-  const [sortOrder, setSortOrder] = useState('asc') // asc: 시간 빠른 순, desc: 시간 느린 순
+  const [exhibition, setExhibition] = useState(null)
+  const [events, setEvents] = useState([])
+  
+  // Load exhibition and events based on exhibition_id
+  useEffect(() => {
+    if (exhibitionId) {
+      // exhibition_id가 있으면 해당 전시회 데이터 로드
+      setExhibition(MOCK_EXHIBITION)
+      setEvents(MOCK_EVENTS)
+    } else {
+      // exhibition_id가 없으면 기본 전시회 표시
+      setExhibition(MOCK_EXHIBITION)
+      setEvents(MOCK_EVENTS)
+    }
+  }, [exhibitionId])
   
   const toggleFavorite = (eventId) => {
     if (favorites.includes(eventId)) {
@@ -91,41 +110,44 @@ export default function EventList() {
     }
   }
   
-  // 현재 시간 기준으로 지난 이벤트 자동 숨김 + 검색/날짜 필터 + 정렬
-  const filteredEvents = useMemo(() => {
+  // 현재 날짜/시간 포맷팅
+  const getCurrentDateTime = () => {
     const now = new Date()
-
-    const toDateTime = (e) => {
-      // Combine date and time as local time
-      const iso = `${e.date}T${e.time.length === 5 ? e.time + ':00' : e.time}`
-      return new Date(iso)
-    }
-
-    // 지난 이벤트 자동 필터링 (현재 시간 기준)
-    const upcoming = MOCK_EVENTS
-      .map(e => ({ ...e, __dt: toDateTime(e) }))
-      .filter(e => e.__dt.getTime() >= now.getTime())
-
-    // 검색어 및 날짜 필터
-    const searched = upcoming.filter(event => {
-      const matchesSearch = event.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           event.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           event.description.toLowerCase().includes(searchTerm.toLowerCase())
-      const matchesDate = !filterDate || event.date === filterDate
-      return matchesSearch && matchesDate
+    const month = now.getMonth() + 1
+    const day = now.getDate()
+    const dayNames = ['일', '월', '화', '수', '목', '금', '토']
+    const dayName = dayNames[now.getDay()]
+    const hours = String(now.getHours()).padStart(2, '0')
+    const minutes = String(now.getMinutes()).padStart(2, '0')
+    return `${month}.${day}(${dayName}) ${hours}:${minutes}`
+  }
+  
+  // 날짜 포맷팅 (YYYY-MM-DD -> MM.DD(요일))
+  const formatDate = (dateStr) => {
+    const date = new Date(dateStr)
+    const month = date.getMonth() + 1
+    const day = date.getDate()
+    const dayNames = ['일', '월', '화', '수', '목', '금', '토']
+    const dayName = dayNames[date.getDay()]
+    return `${month}.${day}(${dayName})`
+  }
+  
+  // 검색 필터링
+  const filteredEvents = useMemo(() => {
+    if (!searchTerm) return events
+    
+    return events.filter(event => {
+      const searchLower = searchTerm.toLowerCase()
+      return event.eventName.toLowerCase().includes(searchLower) ||
+             event.companyName.toLowerCase().includes(searchLower) ||
+             event.description.toLowerCase().includes(searchLower) ||
+             event.boothNumber.toLowerCase().includes(searchLower)
     })
-
-    // 정렬: 시간 빠른 순(asc) 또는 느린 순(desc)
-    const sorted = [...searched].sort((a, b) => {
-      const diff = a.__dt.getTime() - b.__dt.getTime()
-      return sortOrder === 'asc' ? diff : -diff
-    })
-
-    return sorted
-  }, [searchTerm, filterDate, sortOrder])
+  }, [searchTerm, events])
   
   return (
     <div className="event-list-page">
+      {/* 헤더 */}
       <div className="event-list-header">
         <div className="container">
           <button 
@@ -134,8 +156,6 @@ export default function EventList() {
           >
             ← 홈으로
           </button>
-          
-          <h1>전시회 이벤트</h1>
           
           <div className="search-filter">
             <div className="search-box">
@@ -147,155 +167,94 @@ export default function EventList() {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            
-            <div className="filter-box">
-              <Calendar size={20} />
-              <input
-                type="date"
-                value={filterDate}
-                onChange={(e) => setFilterDate(e.target.value)}
-              />
-            </div>
           </div>
         </div>
       </div>
       
+      {/* 메인 컨텐츠 */}
       <div className="event-list-container container">
-        <div className="results-info">
-          <span>{filteredEvents.length}개의 이벤트</span>
+        {/* 현재 날짜/시간 */}
+        <div className="current-datetime">
+          {getCurrentDateTime()}
         </div>
-
-        {/* 정렬 선택 */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' }}>
-          <div className="filter-box" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Filter size={18} />
-            <select value={sortOrder} onChange={(e) => setSortOrder(e.target.value)}>
-              <option value="asc">시간 빠른 순</option>
-              <option value="desc">시간 느린 순</option>
-            </select>
-          </div>
-        </div>
-
-        <div style={{ 
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '1rem'
-        }}>
-          {filteredEvents.map(event => (
-            <div 
-              key={event.id}
-              style={{
-                display: 'flex',
-                background: 'white',
-                borderRadius: '12px',
-                overflow: 'hidden',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                cursor: 'pointer',
-                transition: 'all 0.3s ease',
-                border: '2px solid #e5e7eb',
-                height: '140px',
-                position: 'relative'
-              }}
-              onClick={() => navigate(`/visitor/event/${event.id}`)}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.boxShadow = '0 4px 16px rgba(37, 99, 235, 0.3)'
-                e.currentTarget.style.borderColor = '#2563eb'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)'
-                e.currentTarget.style.borderColor = '#e5e7eb'
-              }}
-            >
-              {/* Favorite Button */}
-              <button 
-                style={{
-                  position: 'absolute',
-                  top: '0.75rem',
-                  right: '0.75rem',
-                  background: 'white',
-                  border: 'none',
-                  borderRadius: '50%',
-                  width: '36px',
-                  height: '36px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                  zIndex: 10,
-                  color: favorites.includes(event.id) ? '#ef4444' : '#9ca3af'
-                }}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  toggleFavorite(event.id)
-                }}
-              >
-                <Heart size={20} fill={favorites.includes(event.id) ? 'currentColor' : 'none'} />
-              </button>
-
-              {/* Event Image */}
-              <div style={{ 
-                width: '180px',
-                minWidth: '180px',
-                overflow: 'hidden',
-                position: 'relative'
-              }}>
-                <img 
-                  src={event.image} 
-                  alt={event.name}
-                  style={{ 
-                    width: '100%', 
-                    height: '100%', 
-                    objectFit: 'cover'
-                  }}
-                />
+        
+        {/* 행사 정보 카드 */}
+        {exhibition && (
+          <div className="exhibition-card">
+            <div className="exhibition-badge">{exhibition.code}</div>
+            <h2 className="exhibition-title">{exhibition.name}</h2>
+            <div className="exhibition-info">
+              <div className="info-item">
+                <Calendar size={16} />
+                <span>
+                  {formatDate(exhibition.startDate)} ~ {formatDate(exhibition.endDate)}
+                </span>
               </div>
-              
-              {/* Event Info */}
-              <div style={{ 
-                flex: 1,
-                padding: '1.25rem',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between'
-              }}>
-                <div>
-                  <h3 style={{ 
-                    fontSize: '1.25rem', 
-                    fontWeight: '700', 
-                    marginBottom: '0.5rem',
-                    color: '#1f2937'
-                  }}>
-                    {event.name}
-                  </h3>
-                  <p style={{ 
-                    fontSize: '0.875rem', 
-                    color: '#6b7280',
-                    marginBottom: '0.75rem',
-                    lineHeight: '1.4'
-                  }}>
-                    {event.description}
-                  </p>
-                </div>
-                
-                <div style={{ 
-                  display: 'flex',
-                  gap: '1.5rem',
-                  fontSize: '0.875rem',
-                  color: '#4b5563'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    <MapPin size={16} style={{ color: '#10b981', flexShrink: 0 }} />
-                    <span>{event.venue}</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    <Calendar size={16} style={{ color: '#f59e0b', flexShrink: 0 }} />
-                    <span>{event.date} {event.time}</span>
-                  </div>
-                </div>
+              <div className="info-item">
+                <MapPin size={16} />
+                <span>{exhibition.hallInfo}</span>
               </div>
             </div>
-          ))}
+          </div>
+        )}
+        
+        {/* 이벤트 리스트 섹션 */}
+        <div className="events-section">
+          <h3 className="section-title">참여 업체 이벤트</h3>
+          <div className="results-info">
+            <span>{filteredEvents.length}개의 이벤트</span>
+          </div>
+          
+          <div className="events-list">
+            {filteredEvents.map(event => (
+              <div 
+                key={event.id}
+                className="event-item"
+                onClick={() => navigate(`/visitor/event/${event.id}`)}
+              >
+                {/* 이벤트 이미지 */}
+                <div className="event-item-image">
+                  <img 
+                    src={event.posterImageUrl} 
+                    alt={event.companyName}
+                  />
+                </div>
+                
+                {/* 이벤트 정보 */}
+                <div className="event-item-info">
+                  <div className="event-item-header">
+                    <span className="booth-badge">{event.boothNumber}</span>
+                    <h4 className="event-item-name">{event.eventName}</h4>
+                  </div>
+                  
+                  {/* 시간대 */}
+                  <div className="time-slots">
+                    <Clock size={14} />
+                    {event.timeSlots.map((time, idx) => (
+                      <span key={idx} className="time-slot">
+                        {time}
+                      </span>
+                    ))}
+                  </div>
+                  
+                  <p className="event-item-description">
+                    {event.description}
+                  </p>
+                  
+                  {event.benefits && (
+                    <div className="event-item-benefits">
+                      🎁 {event.benefits}
+                    </div>
+                  )}
+                </div>
+                
+                {/* 화살표 아이콘 */}
+                <div className="event-item-arrow">
+                  <ChevronRight size={20} />
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>
