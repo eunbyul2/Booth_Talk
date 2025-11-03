@@ -103,11 +103,52 @@ COMMENT ON COLUMN companies.magic_token IS '자동 로그인용 매직 링크 �
 COMMENT ON COLUMN companies.username IS '로그인용 아이디 (회사명 기반 자동 생성)';
 
 -- ============================================
--- 4. 이벤트 테이블
+-- 4. 행사(Exhibition) 테이블 - 전시회/박람회 정보
+-- ============================================
+CREATE TABLE exhibitions (
+    id SERIAL PRIMARY KEY,
+    venue_id INTEGER REFERENCES venues(id),
+    
+    -- 행사 기본 정보
+    exhibition_name VARCHAR(300) NOT NULL,
+    exhibition_code VARCHAR(50) UNIQUE, -- 행사 코드 (예: S0902)
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    
+    -- 장소 정보
+    hall_info VARCHAR(200), -- 홀 정보 (예: 제1전시관 A, B, C)
+    
+    -- 상세 정보
+    description TEXT,
+    organizer VARCHAR(200), -- 주최자
+    website_url VARCHAR(255),
+    poster_image_url TEXT,
+    
+    -- 상태
+    is_active BOOLEAN DEFAULT TRUE,
+    
+    -- 메타 정보
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW(),
+    
+    CONSTRAINT chk_exhibition_dates CHECK (end_date >= start_date)
+);
+
+-- 행사 인덱스
+CREATE INDEX idx_exhibitions_dates ON exhibitions(start_date, end_date);
+CREATE INDEX idx_exhibitions_code ON exhibitions(exhibition_code);
+CREATE INDEX idx_exhibitions_is_active ON exhibitions(is_active);
+
+COMMENT ON TABLE exhibitions IS '전시회/박람회 행사 정보 테이블';
+COMMENT ON COLUMN exhibitions.exhibition_code IS '행사 고유 코드 (예: S0902)';
+
+-- ============================================
+-- 5. 이벤트 테이블 - 부스별 이벤트/프로그램
 -- ============================================
 CREATE TABLE events (
     id SERIAL PRIMARY KEY,
     company_id INTEGER NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    exhibition_id INTEGER REFERENCES exhibitions(id) ON DELETE CASCADE,
     venue_id INTEGER REFERENCES venues(id),
     
     -- 기본 정보
@@ -117,6 +158,9 @@ CREATE TABLE events (
     event_time TIME NOT NULL,
     end_date DATE,
     end_time TIME,
+    
+    -- 이벤트 시간대 (여러 시간대 가능)
+    time_slots TEXT[], -- 예: ['11:00', '13:00', '14:00', '15:00']
     
     -- 상세 정보
     description TEXT,
@@ -155,6 +199,7 @@ CREATE TABLE events (
 
 -- 이벤트 인덱스
 CREATE INDEX idx_events_company_id ON events(company_id);
+CREATE INDEX idx_events_exhibition_id ON events(exhibition_id);
 CREATE INDEX idx_events_venue_id ON events(venue_id);
 CREATE INDEX idx_events_event_date ON events(event_date);
 CREATE INDEX idx_events_is_active ON events(is_active);
@@ -162,13 +207,15 @@ CREATE INDEX idx_events_is_featured ON events(is_featured);
 CREATE INDEX idx_events_category ON events(category);
 CREATE INDEX idx_events_tags ON events USING GIN(tags);
 CREATE INDEX idx_events_ocr_data ON events USING GIN(ocr_data);
+CREATE INDEX idx_events_time_slots ON events USING GIN(time_slots);
 
-COMMENT ON TABLE events IS '이벤트 정보 테이블';
+COMMENT ON TABLE events IS '부스별 이벤트/프로그램 정보 테이블';
 COMMENT ON COLUMN events.ocr_data IS 'OCR로 추출한 팜플렛 정보 (JSON)';
 COMMENT ON COLUMN events.additional_images IS '추가 이미지 URL 배열';
+COMMENT ON COLUMN events.time_slots IS '이벤트 진행 시간대 배열 (예: 11:00, 13:00, 14:00, 15:00)';
 
 -- ============================================
--- 5. 이벤트 담당자 테이블 ⭐ 핵심!
+-- 6. 이벤트 담당자 테이블 ⭐ 핵심!
 -- ============================================
 CREATE TABLE event_managers (
     id SERIAL PRIMARY KEY,
@@ -202,7 +249,7 @@ COMMENT ON COLUMN event_managers.notes IS '관리자 전용 메모 (기업은 �
 COMMENT ON COLUMN event_managers.is_primary IS '주 담당자 여부 (한 이벤트에 여러 담당자 가능)';
 
 -- ============================================
--- 6. 설문조사 테이블
+-- 7. 설문조사 테이블
 -- ============================================
 CREATE TABLE surveys (
     id SERIAL PRIMARY KEY,
@@ -260,7 +307,7 @@ COMMENT ON TABLE surveys IS '설문조사 테이블';
 COMMENT ON COLUMN surveys.questions IS '질문 목록 (JSONB 형식)';
 
 -- ============================================
--- 7. 설문 응답 테이블
+-- 8. 설문 응답 테이블
 -- ============================================
 CREATE TABLE survey_responses (
     id SERIAL PRIMARY KEY,
@@ -306,7 +353,7 @@ COMMENT ON TABLE survey_responses IS '설문 응답 테이블';
 COMMENT ON COLUMN survey_responses.answers IS '응답 내용 (JSONB 형식)';
 
 -- ============================================
--- 8. 좋아요 테이블 (관람객이 이벤트 찜하기)
+-- 9. 좋아요 테이블 (관람객이 이벤트 찜하기)
 -- ============================================
 CREATE TABLE event_likes (
     id SERIAL PRIMARY KEY,
@@ -329,7 +376,7 @@ COMMENT ON TABLE event_likes IS '이벤트 좋아요 테이블';
 COMMENT ON COLUMN event_likes.session_id IS '브라우저 세션 ID (비회원 식별용)';
 
 -- ============================================
--- 9. 이벤트 조회 로그 테이블
+-- 10. 이벤트 조회 로그 테이블
 -- ============================================
 CREATE TABLE event_views (
     id SERIAL PRIMARY KEY,
@@ -352,7 +399,7 @@ CREATE INDEX idx_views_session_id ON event_views(session_id);
 COMMENT ON TABLE event_views IS '이벤트 조회 로그';
 
 -- ============================================
--- 10. 시스템 로그 테이블
+-- 11. 시스템 로그 테이블
 -- ============================================
 CREATE TABLE system_logs (
     id SERIAL PRIMARY KEY,
@@ -402,6 +449,9 @@ CREATE TRIGGER update_admins_updated_at BEFORE UPDATE ON admins
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_companies_updated_at BEFORE UPDATE ON companies
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_exhibitions_updated_at BEFORE UPDATE ON exhibitions
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_events_updated_at BEFORE UPDATE ON events
@@ -455,7 +505,7 @@ CREATE TRIGGER trigger_survey_response_count
 -- 뷰(View) 생성
 -- ============================================
 
--- 1. 이벤트 통합 뷰 (담당자 포함)
+-- 1. 이벤트 통합 뷰 (담당자 및 행사 정보 포함)
 CREATE OR REPLACE VIEW v_events_with_details AS
 SELECT 
     e.*,
@@ -463,6 +513,11 @@ SELECT
     c.username AS company_username,
     v.venue_name,
     v.location AS venue_location,
+    ex.exhibition_name,
+    ex.exhibition_code,
+    ex.start_date AS exhibition_start_date,
+    ex.end_date AS exhibition_end_date,
+    ex.hall_info AS exhibition_hall_info,
     COALESCE(
         json_agg(
             json_build_object(
@@ -479,10 +534,12 @@ SELECT
 FROM events e
 LEFT JOIN companies c ON e.company_id = c.id
 LEFT JOIN venues v ON e.venue_id = v.id
+LEFT JOIN exhibitions ex ON e.exhibition_id = ex.id
 LEFT JOIN event_managers em ON e.id = em.event_id
-GROUP BY e.id, c.company_name, c.username, v.venue_name, v.location;
+GROUP BY e.id, c.company_name, c.username, v.venue_name, v.location, 
+         ex.exhibition_name, ex.exhibition_code, ex.start_date, ex.end_date, ex.hall_info;
 
-COMMENT ON VIEW v_events_with_details IS '이벤트 상세 정보 통합 뷰 (담당자 포함)';
+COMMENT ON VIEW v_events_with_details IS '이벤트 상세 정보 통합 뷰 (담당자 및 행사 정보 포함)';
 
 -- 2. 관리자용 통계 뷰
 CREATE OR REPLACE VIEW v_admin_statistics AS
@@ -502,27 +559,31 @@ COMMENT ON VIEW v_admin_statistics IS '관리자 대시보드용 통계 뷰';
 
 -- 샘플 기업 5개 (비밀번호: root)
 INSERT INTO companies (company_name, username, password_hash, business_number, email, phone, address, website_url, created_by) VALUES
-('테크코퍼레이션', 'techcorp', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5NU7eJR0ZCWE6', '123-45-67890', 'contact@techcorp.com', '02-1234-5678', '서울특별시 강남구 테헤란로 123', 'https://techcorp.com', 1),
-('글로벌이노베이션', 'globalinno', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5NU7eJR0ZCWE6', '234-56-78901', 'info@globalinno.com', '02-2345-6789', '서울특별시 서초구 서초대로 456', 'https://globalinno.com', 1),
-('스마트솔루션즈', 'smartsol', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5NU7eJR0ZCWE6', '345-67-89012', 'hello@smartsol.com', '031-3456-7890', '경기도 성남시 분당구 판교로 789', 'https://smartsol.com', 1),
-('퓨처테크놀로지', 'futuretech', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5NU7eJR0ZCWE6', '456-78-90123', 'contact@futuretech.com', '051-4567-8901', '부산광역시 해운대구 센텀중앙로 101', 'https://futuretech.com', 1),
-('디지털크리에이티브', 'digitalcreative', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5NU7eJR0ZCWE6', '567-89-01234', 'info@digitalcreative.com', '02-5678-9012', '서울특별시 마포구 월드컵북로 202', 'https://digitalcreative.com', 1);
+('농업회사법인', 'nongup', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5NU7eJR0ZCWE6', '123-45-67890', 'contact@nongup.com', '02-1234-5678', '서울특별시 강남구 테헤란로 123', 'https://nongup.com', 1),
+('(주)대일피비', 'daeilpb', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5NU7eJR0ZCWE6', '234-56-78901', 'info@daeilpb.com', '02-2345-6789', '서울특별시 서초구 서초대로 456', 'https://daeilpb.com', 1),
+('특별한헬스클럽', 'healthclub', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5NU7eJR0ZCWE6', '345-67-89012', 'hello@healthclub.com', '031-3456-7890', '경기도 성남시 분당구 판교로 789', 'https://healthclub.com', 1),
+('협찬투어', 'hyupchantour', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5NU7eJR0ZCWE6', '456-78-90123', 'contact@hyupchantour.com', '051-4567-8901', '부산광역시 해운대구 센텀중앙로 101', 'https://hyupchantour.com', 1),
+('농업회사법인', 'nongup2', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5NU7eJR0ZCWE6', '567-89-01234', 'info@nongup2.com', '02-5678-9012', '서울특별시 마포구 월드컵북로 202', 'https://nongup2.com', 1);
 
--- 샘플 이벤트 5개
-INSERT INTO events (company_id, venue_id, event_name, booth_number, event_date, event_time, end_date, end_time, description, participation_method, benefits, capacity, category, tags, is_featured) VALUES
-(1, 1, 'AI Summit 2025', 'A-101', '2025-11-10', '10:00:00', '2025-11-12', '18:00:00', '최신 AI 기술과 머신러닝 솔루션을 만나보세요. 실시간 데모와 전문가 상담이 제공됩니다.', '현장 방문 및 사전 등록', '무료 굿즈, 기술 자료집 제공', 200, 'IT/기술', ARRAY['AI', '머신러닝', '기술'], TRUE),
-(2, 2, '글로벌 비즈니스 엑스포', 'B-205', '2025-11-15', '09:00:00', '2025-11-17', '19:00:00', '해외 진출을 위한 비즈니스 네트워킹 행사. 글로벌 파트너사와의 1:1 미팅 기회를 제공합니다.', '사전 예약 필수', '무료 컨설팅, 네트워킹 디너', 150, '비즈니스', ARRAY['글로벌', '네트워킹', '수출'], TRUE),
-(3, 1, '스마트홈 페스티벌', 'C-312', '2025-11-20', '11:00:00', '2025-11-22', '20:00:00', 'IoT 기반 스마트홈 솔루션 체험관. 최신 스마트 가전과 홈 오토메이션 시스템을 직접 체험해보세요.', '자유 관람', '체험 이벤트 참여 시 경품 추첨', 300, 'IT/기술', ARRAY['IoT', '스마트홈', '가전'], FALSE),
-(4, 3, '미래 모빌리티 쇼', 'D-418', '2025-11-25', '10:30:00', '2025-11-27', '17:30:00', '전기차, 자율주행, 미래 교통 솔루션 전시회. 시승 이벤트와 기술 세미나가 진행됩니다.', '현장 등록 가능', '시승 참여자 커피 쿠폰 제공', 250, '자동차/모빌리티', ARRAY['전기차', '자율주행', '모빌리티'], TRUE),
-(5, 4, '크리에이티브 디자인 위크', 'E-520', '2025-12-01', '13:00:00', '2025-12-03', '21:00:00', '디자이너와 크리에이터를 위한 축제. 워크샵, 포트폴리오 리뷰, 작품 전시가 함께 진행됩니다.', '사전 등록 및 현장 등록', '워크샵 무료 참여, 작품집 제공', 180, '디자인/예술', ARRAY['디자인', '크리에이티브', '워크샵'], FALSE);
+-- 샘플 행사 1개 (2025년 10월 29일 ~ 11월 1일)
+INSERT INTO exhibitions (venue_id, exhibition_name, exhibition_code, start_date, end_date, hall_info, description, organizer) VALUES
+(1, '2025 코엑스 푸드위크', 'S0902', '2025-10-29', '2025-11-01', '제1전시관 A, B, C', '대한민국 최대 식품 박람회', '한국식품산업협회');
+
+-- 샘플 이벤트 5개 (모두 같은 행사에 속함)
+INSERT INTO events (company_id, exhibition_id, venue_id, event_name, booth_number, event_date, event_time, end_date, end_time, time_slots, description, participation_method, benefits, capacity, category, tags, poster_image_url, is_featured) VALUES
+(1, 1, 1, '[S0902] 농업회사법인(주)해남진호드모', 'B5001', '2025-10-29', '11:00:00', '2025-11-01', '15:00:00', ARRAY['11:00', '13:00', '14:00', '15:00'], '당일 조달로 시작', '현장 방문 및 사전 등록', '무료 시식, 할인 쿠폰 제공', 100, '식품', ARRAY['농산물', '시식'], 'https://via.placeholder.com/400x200/FF6B6B/FFFFFF?text=농업회사법인', TRUE),
+(2, 1, 1, '[B5201] (주)대일피비', 'B5201', '2025-10-29', '11:00:00', '2025-11-01', '15:00:00', ARRAY['11:00', '13:00', '14:00', '15:00'], '세계각국의 맛을 시음', '자유 관람', '무료 시식, 경품 추첨', 150, '식품', ARRAY['수입식품', '시식'], 'https://via.placeholder.com/400x200/4ECDC4/FFFFFF?text=대일피비', TRUE),
+(3, 1, 1, '[특별관] 헬스클럽레저 컴퍼니', 'A-312', '2025-10-29', '10:00:00', '2025-11-01', '17:00:00', ARRAY['10:00', '12:00', '14:00', '16:00'], '헬시플레저 라이프 공유소', '사전 예약 권장', '건강 상담, 샘플 증정', 80, '건강/웰빙', ARRAY['건강식품', '웰빙'], 'https://via.placeholder.com/400x200/95E1D3/FFFFFF?text=헬스클럽', FALSE),
+(4, 1, 1, '[B5001] 협찬투어', 'B5001', '2025-10-29', '10:00:00', '2025-11-01', '17:00:00', ARRAY['10:00', '12:00', '14:00', '16:00'], '스페인 타파스 문화 체험 및 올리브 탐방', '현장 등록 가능', '여행 상담, 할인 쿠폰', 120, '여행/문화', ARRAY['여행', '문화체험'], 'https://via.placeholder.com/400x200/F38181/FFFFFF?text=협찬투어', TRUE),
+(5, 1, 1, '[S0902] 농업회사법인(주)해남진호드모', 'S0902', '2025-10-29', '11:00:00', '2025-11-01', '15:00:00', ARRAY['11:00', '13:00', '14:00', '15:00'], '당일 조달로 시작', '현장 방문', '무료 시식, 기념품 증정', 100, '식품', ARRAY['농산물', '시식'], 'https://via.placeholder.com/400x200/AA96DA/FFFFFF?text=농업회사법인', TRUE);
 
 -- 샘플 담당자 5개
 INSERT INTO event_managers (event_id, manager_name, manager_phone, manager_email, manager_position, manager_department, notes, is_primary, added_by) VALUES
-(1, '홍길동', '010-1234-5678', 'hong@techcorp.com', '마케팅 팀장', '마케팅부', 'AI 전문가, 기술 설명 가능', TRUE, 1),
-(2, '김영희', '010-2345-6789', 'kim@globalinno.com', '해외사업 본부장', '해외사업부', '영어, 중국어 가능', TRUE, 1),
-(3, '이철수', '010-3456-7890', 'lee@smartsol.com', '제품 기획자', '제품기획팀', 'IoT 제품 전문가', TRUE, 1),
-(4, '박민수', '010-4567-8901', 'park@futuretech.com', '기술영업 이사', '영업부', '자동차 산업 경력 10년', TRUE, 1),
-(5, '정수진', '010-5678-9012', 'jung@digitalcreative.com', '크리에이티브 디렉터', '디자인팀', '국제 디자인 어워드 수상 경력', TRUE, 1);
+(1, '김해남', '010-1234-5678', 'kim@nongup.com', '영업 팀장', '영업부', '농산물 전문가', TRUE, 1),
+(2, '이대일', '010-2345-6789', 'lee@daeilpb.com', '수입 담당', '수입팀', '영어, 일본어 가능', TRUE, 1),
+(3, '박건강', '010-3456-7890', 'park@healthclub.com', '영양 상담사', '건강관리팀', '영양사 자격증 보유', TRUE, 1),
+(4, '최여행', '010-4567-8901', 'choi@hyupchantour.com', '여행 기획자', '기획팀', '스페인 거주 경력 5년', TRUE, 1),
+(5, '정농부', '010-5678-9012', 'jung@nongup2.com', '생산 관리자', '생산팀', '유기농 인증 전문가', TRUE, 1);
 
 -- ============================================
 -- 권한 설정 (선택사항)
