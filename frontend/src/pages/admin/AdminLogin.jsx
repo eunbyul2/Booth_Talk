@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Shield } from "lucide-react";
+import "./AdminLogin.css";
 
 export default function AdminLogin() {
   const [username, setUsername] = useState("");
@@ -61,8 +62,8 @@ export default function AdminLogin() {
 
         <div className="login-footer">
           <a href="/visitor">관람객 페이지</a>
-          <span>•</span>
-          <a href="/company/login">기업 로그인</a>
+          {/* <span>•</span>
+          <a href="/company/login">기업 로그인</a> */}
         </div>
       </div>
     </div>

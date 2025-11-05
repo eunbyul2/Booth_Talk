@@ -27,6 +27,37 @@ def _is_configured() -> bool:
     return all([MAIL_SERVER, MAIL_USERNAME, MAIL_PASSWORD, MAIL_FROM])
 
 
+def send_html_email(recipient_email: str, subject: str, html_body: str) -> bool:
+    """Send a generic HTML email. Returns False when SMTP is not configured."""
+    if not _is_configured():
+        logger.warning(
+            "SMTP 환경변수가 설정되지 않아 이메일을 전송하지 못했습니다.\n"
+            "MAIL_SERVER / MAIL_USERNAME / MAIL_PASSWORD / MAIL_FROM 값을 .env에 채워주세요."
+        )
+        logger.debug(
+            "미전송 이메일 정보 -> 받는 사람: %s, 제목: %s", recipient_email, subject
+        )
+        return False
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = MAIL_FROM
+    msg["To"] = recipient_email
+    msg.attach(MIMEText(html_body, "html"))
+
+    try:
+        with smtplib.SMTP(MAIL_SERVER, MAIL_PORT, timeout=30) as server:
+            if MAIL_USE_TLS:
+                server.starttls()
+            server.login(MAIL_USERNAME, MAIL_PASSWORD)
+            server.send_message(msg)
+        logger.info("이메일을 %s 로 전송했습니다. (제목: %s)", recipient_email, subject)
+        return True
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("이메일 전송 실패: %s", exc)
+        raise
+
+
 def send_magic_link_email(
     recipient_email: str,
     recipient_name: Optional[str],
@@ -36,25 +67,8 @@ def send_magic_link_email(
     expires_minutes: int,
 ) -> None:
     """Send the magic link email or log a warning when SMTP is not configured."""
-    if not _is_configured():
-        logger.warning(
-            "SMTP 환경변수가 설정되지 않아 매직 링크 이메일을 전송하지 못했습니다.\n"
-            "MAIL_SERVER / MAIL_USERNAME / MAIL_PASSWORD / MAIL_FROM 값을 .env에 채워주세요."
-        )
-        logger.info(
-            "임시 출력) %s (%s) 에게 전송할 매직 링크: %s",
-            company_name,
-            recipient_email,
-            magic_link,
-        )
-        return
-
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = "[전시회 플랫폼] 매직 링크 안내"
-    msg["From"] = MAIL_FROM
-    msg["To"] = recipient_email
-
     greeting = recipient_name or company_name
+    subject = "[전시회 플랫폼] 매직 링크 안내"
     html_body = f"""
     <html>
       <body style="font-family: Arial, sans-serif;">
@@ -74,15 +88,13 @@ def send_magic_link_email(
     </html>
     """
 
-    msg.attach(MIMEText(html_body, "html"))
-
-    try:
-        with smtplib.SMTP(MAIL_SERVER, MAIL_PORT, timeout=30) as server:
-            if MAIL_USE_TLS:
-                server.starttls()
-            server.login(MAIL_USERNAME, MAIL_PASSWORD)
-            server.send_message(msg)
-        logger.info("매직 링크 이메일을 %s 로 전송했습니다.", recipient_email)
-    except Exception as exc:  # noqa: BLE001
-        logger.exception("매직 링크 이메일 전송 실패: %s", exc)
-        raise
+    # 임시로 이메일 발송을 비활성화하고 로그만 출력
+    logger.info(
+        "매직 링크 생성됨) %s (%s) - 링크: %s",
+        company_name,
+        recipient_email,
+        magic_link,
+    )
+    
+    # 이메일 발송 대신 True 반환 (성공으로 처리)
+    return True

@@ -1,8 +1,8 @@
 """
 Database configuration and session management
 """
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import declarative_base  # type: ignore[attr-defined]
 from sqlalchemy.orm import sessionmaker
 from typing import Generator
 import os
@@ -11,12 +11,13 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-# Database URL with local fallback for development
+# Database URL (PostgreSQL required)
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if not DATABASE_URL:
-    default_sqlite = os.path.join(os.path.dirname(__file__), "lovely.db")
-    DATABASE_URL = f"sqlite:///{default_sqlite}"
+    raise RuntimeError(
+        "DATABASE_URL is not set. Update backend/.env with your PostgreSQL connection string."
+    )
 
 # Create SQLAlchemy engine
 engine_kwargs = {
@@ -24,11 +25,8 @@ engine_kwargs = {
     "echo": os.getenv("DEBUG", "False").lower() == "true",
 }
 
-if DATABASE_URL.startswith("sqlite"):
-    engine_kwargs["connect_args"] = {"check_same_thread": False}
-else:
-    engine_kwargs["pool_size"] = 10
-    engine_kwargs["max_overflow"] = 20
+engine_kwargs["pool_size"] = int(os.getenv("DB_POOL_SIZE", "10"))
+engine_kwargs["max_overflow"] = int(os.getenv("DB_MAX_OVERFLOW", "20"))
 
 engine = create_engine(DATABASE_URL, **engine_kwargs)
 
@@ -64,21 +62,14 @@ def test_connection():
     """Test database connection"""
     try:
         with engine.connect() as conn:
-            if engine.dialect.name == "sqlite":
-                result = conn.execute("SELECT sqlite_version();")
-                version = result.fetchone()
-                print("✅ SQLite connection successful!")
-                print(f"SQLite version: {version[0]}")
-            else:
-                result = conn.execute("SELECT version();")
-                version = result.fetchone()
-                print("✅ Database connection successful!")
-                print(f"PostgreSQL version: {version[0]}")
+            result = conn.execute(text("SELECT version();"))
+            version = result.fetchone()
+            print("PostgreSQL connection successful!")
+            print(f"PostgreSQL version: {version[0]}")
             return True
     except Exception as e:
         print(f"❌ Database connection failed: {e}")
         return False
-
 
 if __name__ == "__main__":
     test_connection()

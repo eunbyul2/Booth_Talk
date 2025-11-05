@@ -23,26 +23,38 @@ export default function MagicLogin() {
 
   const authenticateWithToken = async (token) => {
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      // 실제 API 호출로 토큰 검증
+      const response = await fetch(
+        `/api/auth/magic-verify?token=${encodeURIComponent(token)}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
-      const mockData = {
-        access_token: "mock_token_123",
-        company_name: "TechCorp",
-        company_id: 1,
-        is_first_login: true,
-      };
+      const data = await response.json();
 
-      localStorage.setItem("access_token", mockData.access_token);
-      localStorage.setItem("company_id", mockData.company_id);
-      localStorage.setItem("company_name", mockData.company_name);
+      if (response.ok && data.success) {
+        // 로그인 성공 시 토큰과 기업 정보 저장
+        localStorage.setItem("access_token", data.access_token);
+        localStorage.setItem("company_token", data.access_token);
+        localStorage.setItem("company_id", data.company.id);
+        localStorage.setItem("company_name", data.company.name);
+        localStorage.setItem("companyId", data.company.id);
 
-      setCompanyName(mockData.company_name);
-      setIsFirstLogin(mockData.is_first_login);
-      setStatus("success");
+        setCompanyName(data.company.name);
+        setIsFirstLogin(data.is_first_login || false);
+        setStatus("success");
 
-      setTimeout(() => {
-        navigate("/company/event/upload");
-      }, 2000);
+        // 2초 후 이벤트 등록 페이지로 이동
+        setTimeout(() => {
+          navigate(`/company/dashboard?company_id=${data.company.id}`);
+        }, 2000);
+      } else {
+        setStatus("error");
+      }
     } catch (error) {
       console.error("Authentication error:", error);
       setStatus("error");

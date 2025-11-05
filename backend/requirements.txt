@@ -4,7 +4,7 @@ uvicorn[standard]==0.24.0
 
 # 데이터베이스
 sqlalchemy==2.0.23
-psycopg2-binary==2.9.9
+asyncpg==0.29.0
 alembic==1.12.1
 
 # 인증 및 보안
@@ -25,6 +25,7 @@ qrcode==7.4.2
 openai==2.6.1 #추가
 anthropic==0.72.0 #추가
 requests==2.32.3 #추가
+apscheduler==3.10.4
 
 # OCR (선택사항 - 필요시 주석 해제)
 # pytesseract==0.3.10

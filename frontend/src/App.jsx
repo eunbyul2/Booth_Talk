@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 // Company Pages
-import CompanyLogin from "./pages/company/CompanyLogin.jsx";
+import CompanyLogin from "./pages/company/CompanyLogin.jsx"; // ✅ 기업 로그인 활성화
 import MagicLogin from "./pages/company/MagicLogin.jsx";
 import CompanyDashboard from "./pages/company/CompanyDashboard.jsx";
 import EventUpload from "./pages/company/EventUpload.jsx";
@@ -26,7 +26,7 @@ function App() {
         {/* Home */}
         <Route path="/" element={<Navigate to="/visitor" />} />
 
-        {/* Company Routes */}
+        {/* Company Routes - 일반 로그인과 매직링크 모두 지원 */}
         <Route path="/company/login" element={<CompanyLogin />} />
         <Route path="/company/magic-login" element={<MagicLogin />} />
         <Route path="/company/dashboard" element={<CompanyDashboard />} />
