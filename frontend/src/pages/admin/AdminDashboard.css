@@ -16,6 +16,12 @@
   margin-bottom: 32px;
 }
 
+.admin-header-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
 .admin-header h1 {
   font-size: 32px;
   color: var(--text-primary);
@@ -201,6 +207,14 @@
 .action-buttons {
   display: flex;
   gap: 8px;
+  align-items: center;
+  min-width: 200px; /* 버튼들이 잘리지 않도록 최소 너비 설정 */
+}
+
+.admin-table th:last-child,
+.admin-table td:last-child {
+  width: 220px; /* 액션 컬럼 너비 고정 */
+  min-width: 220px;
 }
 
 .filter-section {

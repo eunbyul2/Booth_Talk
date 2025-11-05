@@ -1,162 +1,148 @@
-import { useMemo, useState, useEffect } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Search, Filter, Calendar, MapPin, Heart, Clock, ChevronRight } from 'lucide-react'
-import './EventList.css'
+import { useMemo, useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { Search, Calendar, MapPin, Clock, ChevronRight } from "lucide-react";
+import "./EventList.css";
+import { getVisitorEvents } from "../../apiClient";
 
-// 샘플 전시회 정보
-const MOCK_EXHIBITION = {
-  id: 1,
-  name: '2025 코엑스 푸드위크',
-  code: 'S0902',
-  startDate: '2025-10-29',
-  endDate: '2025-11-01',
-  hallInfo: '제1전시관 A, B, C',
-  venueName: '코엑스',
-  location: '서울'
-}
-
-// 샘플 이벤트 데이터 (DB schema 기반)
-const MOCK_EVENTS = [
-  {
-    id: 1,
-    eventName: '[S0902] 농업회사법인(주)해남진호드모',
-    companyName: '농업회사법인',
-    boothNumber: 'B5001',
-    timeSlots: ['11:00', '13:00', '14:00', '15:00'],
-    description: '당일 조달로 시작',
-    benefits: '무료 시식, 할인 쿠폰 제공',
-    posterImageUrl: 'https://via.placeholder.com/120x120/FF6B6B/FFFFFF?text=농업회사법인',
-    category: '식품',
-    tags: ['농산물', '시식']
-  },
-  {
-    id: 2,
-    eventName: '[B5201] (주)대일피비',
-    companyName: '(주)대일피비',
-    boothNumber: 'B5201',
-    timeSlots: ['11:00', '13:00', '14:00', '15:00'],
-    description: '세계각국의 맛을 시음',
-    benefits: '무료 시식, 경품 추첨',
-    posterImageUrl: 'https://via.placeholder.com/120x120/4ECDC4/FFFFFF?text=대일피비',
-    category: '식품',
-    tags: ['수입식품', '시식']
-  },
-  {
-    id: 3,
-    eventName: '[특별관] 헬스클럽레저 컴퍼니',
-    companyName: '특별한헬스클럽',
-    boothNumber: 'A-312',
-    timeSlots: ['10:00', '12:00', '14:00', '16:00'],
-    description: '헬시플레저 라이프 공유소',
-    benefits: '건강 상담, 샘플 증정',
-    posterImageUrl: 'https://via.placeholder.com/120x120/95E1D3/FFFFFF?text=헬스클럽',
-    category: '건강/웰빙',
-    tags: ['건강식품', '웰빙']
-  },
-  {
-    id: 4,
-    eventName: '[B5001] 협찬투어',
-    companyName: '협찬투어',
-    boothNumber: 'B5001',
-    timeSlots: ['10:00', '12:00', '14:00', '16:00'],
-    description: '스페인 타파스 문화 체험 및 올리브 탐방',
-    benefits: '여행 상담, 할인 쿠폰',
-    posterImageUrl: 'https://via.placeholder.com/120x120/F38181/FFFFFF?text=협찬투어',
-    category: '여행/문화',
-    tags: ['여행', '문화체험']
-  },
-  {
-    id: 5,
-    eventName: '[S0902] 농업회사법인(주)해남진호드모',
-    companyName: '농업회사법인',
-    boothNumber: 'S0902',
-    timeSlots: ['11:00', '13:00', '14:00', '15:00'],
-    description: '당일 조달로 시작',
-    benefits: '무료 시식, 기념품 증정',
-    posterImageUrl: 'https://via.placeholder.com/120x120/AA96DA/FFFFFF?text=농업회사법인',
-    category: '식품',
-    tags: ['농산물', '시식']
-  }
-]
+const FALLBACK_POSTER = "https://placehold.co/120x120?text=Event";
 
 export default function EventList() {
-  const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
-  const exhibitionId = searchParams.get('exhibition_id')
-  
-  const [searchTerm, setSearchTerm] = useState('')
-  const [favorites, setFavorites] = useState([])
-  const [exhibition, setExhibition] = useState(null)
-  const [events, setEvents] = useState([])
-  
-  // Load exhibition and events based on exhibition_id
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const exhibitionId = searchParams.get("exhibition_id");
+
+  const [searchTerm, setSearchTerm] = useState("");
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [totalCount, setTotalCount] = useState(0);
+  const [filterInfo, setFilterInfo] = useState(null);
+
   useEffect(() => {
-    if (exhibitionId) {
-      // exhibition_id가 있으면 해당 전시회 데이터 로드
-      setExhibition(MOCK_EXHIBITION)
-      setEvents(MOCK_EVENTS)
-    } else {
-      // exhibition_id가 없으면 기본 전시회 표시
-      setExhibition(MOCK_EXHIBITION)
-      setEvents(MOCK_EVENTS)
-    }
-  }, [exhibitionId])
-  
-  const toggleFavorite = (eventId) => {
-    if (favorites.includes(eventId)) {
-      setFavorites(favorites.filter(id => id !== eventId))
-    } else {
-      setFavorites([...favorites, eventId])
-    }
-  }
-  
+    let active = true;
+    setLoading(true);
+    setError(null);
+
+    const timer = setTimeout(async () => {
+      try {
+        const params = {
+          only_available: false,
+          limit: 100,
+        };
+
+        if (searchTerm) {
+          params.keyword = searchTerm;
+        }
+
+        if (exhibitionId) {
+          params.event_type = exhibitionId;
+        }
+
+        const data = await getVisitorEvents(params);
+        if (!active) return;
+
+        const fetchedEvents = Array.isArray(data?.events) ? data.events : [];
+        setEvents(fetchedEvents);
+        setTotalCount(data?.total ?? fetchedEvents.length);
+        setFilterInfo(data?.filter_info ?? null);
+      } catch (err) {
+        if (!active) return;
+        console.error(err);
+        setError(
+          err instanceof Error
+            ? err.message
+            : "이벤트 목록을 불러오지 못했습니다."
+        );
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    }, 250);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [searchTerm, exhibitionId]);
+
+  const exhibition = useMemo(() => {
+    if (!events.length) return null;
+    const first = events[0];
+    const startDate = events.reduce((min, event) => {
+      const d = new Date(event.start_date);
+      return d < min ? d : min;
+    }, new Date(events[0].start_date));
+
+    const endDate = events.reduce((max, event) => {
+      const d = new Date(event.end_date || event.start_date);
+      return d > max ? d : max;
+    }, new Date(events[0].end_date || events[0].start_date));
+
+    return {
+      id: exhibitionId || first.venue_id || first.id,
+      name: first.venue_name || "전시 이벤트",
+      code: first.event_type || "이벤트",
+      startDate: startDate.toISOString().slice(0, 10),
+      endDate: endDate.toISOString().slice(0, 10),
+      hallInfo: first.location || "장소 정보 없음",
+      venueName: first.venue_name || "",
+      location: first.venue_location || "",
+    };
+  }, [events, exhibitionId]);
+
   // 현재 날짜/시간 포맷팅
   const getCurrentDateTime = () => {
-    const now = new Date()
-    const month = now.getMonth() + 1
-    const day = now.getDate()
-    const dayNames = ['일', '월', '화', '수', '목', '금', '토']
-    const dayName = dayNames[now.getDay()]
-    const hours = String(now.getHours()).padStart(2, '0')
-    const minutes = String(now.getMinutes()).padStart(2, '0')
-    return `${month}.${day}(${dayName}) ${hours}:${minutes}`
-  }
-  
+    const now = new Date();
+    const month = now.getMonth() + 1;
+    const day = now.getDate();
+    const dayNames = ["일", "월", "화", "수", "목", "금", "토"];
+    const dayName = dayNames[now.getDay()];
+    const hours = String(now.getHours()).padStart(2, "0");
+    const minutes = String(now.getMinutes()).padStart(2, "0");
+    return `${month}.${day}(${dayName}) ${hours}:${minutes}`;
+  };
+
   // 날짜 포맷팅 (YYYY-MM-DD -> MM.DD(요일))
   const formatDate = (dateStr) => {
-    const date = new Date(dateStr)
-    const month = date.getMonth() + 1
-    const day = date.getDate()
-    const dayNames = ['일', '월', '화', '수', '목', '금', '토']
-    const dayName = dayNames[date.getDay()]
-    return `${month}.${day}(${dayName})`
-  }
-  
+    if (!dateStr) return "날짜 미정";
+    const date = new Date(dateStr);
+    if (Number.isNaN(date.getTime())) return "날짜 미정";
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    const dayNames = ["일", "월", "화", "수", "목", "금", "토"];
+    const dayName = dayNames[date.getDay()];
+    return `${month}.${day}(${dayName})`;
+  };
+
   // 검색 필터링
   const filteredEvents = useMemo(() => {
-    if (!searchTerm) return events
-    
-    return events.filter(event => {
-      const searchLower = searchTerm.toLowerCase()
-      return event.eventName.toLowerCase().includes(searchLower) ||
-             event.companyName.toLowerCase().includes(searchLower) ||
-             event.description.toLowerCase().includes(searchLower) ||
-             event.boothNumber.toLowerCase().includes(searchLower)
-    })
-  }, [searchTerm, events])
-  
+    if (!searchTerm) return events;
+
+    const searchLower = searchTerm.toLowerCase();
+    return events.filter((event) => {
+      const eventName = event.event_name?.toLowerCase() || "";
+      const companyName = event.company_name?.toLowerCase() || "";
+      const description = event.description?.toLowerCase() || "";
+      const booth = event.booth_number?.toLowerCase() || "";
+      return (
+        eventName.includes(searchLower) ||
+        companyName.includes(searchLower) ||
+        description.includes(searchLower) ||
+        booth.includes(searchLower)
+      );
+    });
+  }, [searchTerm, events]);
+
   return (
     <div className="event-list-page">
       {/* 헤더 */}
       <div className="event-list-header">
         <div className="container">
-          <button 
-            className="btn-back"
-            onClick={() => navigate('/visitor')}
-          >
+          <button className="btn-back" onClick={() => navigate("/visitor")}>
             ← 홈으로
           </button>
-          
+
           <div className="search-filter">
             <div className="search-box">
               <Search size={20} />
@@ -170,14 +156,12 @@ export default function EventList() {
           </div>
         </div>
       </div>
-      
+
       {/* 메인 컨텐츠 */}
       <div className="event-list-container container">
         {/* 현재 날짜/시간 */}
-        <div className="current-datetime">
-          {getCurrentDateTime()}
-        </div>
-        
+        <div className="current-datetime">{getCurrentDateTime()}</div>
+
         {/* 행사 정보 카드 */}
         {exhibition && (
           <div className="exhibition-card">
@@ -187,7 +171,8 @@ export default function EventList() {
               <div className="info-item">
                 <Calendar size={16} />
                 <span>
-                  {formatDate(exhibition.startDate)} ~ {formatDate(exhibition.endDate)}
+                  {formatDate(exhibition.startDate)} ~{" "}
+                  {formatDate(exhibition.endDate)}
                 </span>
               </div>
               <div className="info-item">
@@ -197,57 +182,75 @@ export default function EventList() {
             </div>
           </div>
         )}
-        
+
         {/* 이벤트 리스트 섹션 */}
         <div className="events-section">
           <h3 className="section-title">참여 업체 이벤트</h3>
           <div className="results-info">
-            <span>{filteredEvents.length}개의 이벤트</span>
+            <span>총 {totalCount}개의 이벤트</span>
+            {filterInfo?.target_date && filterInfo?.target_time && (
+              <span>
+                {formatDate(filterInfo.target_date)} {filterInfo.target_time}{" "}
+                기준
+              </span>
+            )}
           </div>
-          
+
+          {error && <div className="error-box">{error}</div>}
+
+          {loading && (
+            <div className="loading-box">이벤트를 불러오는 중입니다...</div>
+          )}
+
+          {!loading && !error && filteredEvents.length === 0 && (
+            <div className="empty-box">
+              조건에 맞는 이벤트가 없습니다. 다른 키워드로 검색해 보세요.
+            </div>
+          )}
+
           <div className="events-list">
-            {filteredEvents.map(event => (
-              <div 
+            {filteredEvents.map((event) => (
+              <div
                 key={event.id}
                 className="event-item"
                 onClick={() => navigate(`/visitor/event/${event.id}`)}
               >
                 {/* 이벤트 이미지 */}
                 <div className="event-item-image">
-                  <img 
-                    src={event.posterImageUrl} 
-                    alt={event.companyName}
+                  <img
+                    src={event.image_url || FALLBACK_POSTER}
+                    alt={event.company_name}
                   />
                 </div>
-                
+
                 {/* 이벤트 정보 */}
                 <div className="event-item-info">
                   <div className="event-item-header">
-                    <span className="booth-badge">{event.boothNumber}</span>
-                    <h4 className="event-item-name">{event.eventName}</h4>
+                    <span className="booth-badge">
+                      {event.booth_number || "부스 정보 없음"}
+                    </span>
+                    <h4 className="event-item-name">{event.event_name}</h4>
                   </div>
-                  
+
                   {/* 시간대 */}
                   <div className="time-slots">
                     <Clock size={14} />
-                    {event.timeSlots.map((time, idx) => (
-                      <span key={idx} className="time-slot">
-                        {time}
-                      </span>
-                    ))}
+                    <span className="time-slot">
+                      {event.available_hours || "시간 정보 없음"}
+                    </span>
                   </div>
-                  
+
                   <p className="event-item-description">
-                    {event.description}
+                    {event.description || "등록된 설명이 없습니다."}
                   </p>
-                  
+
                   {event.benefits && (
                     <div className="event-item-benefits">
                       🎁 {event.benefits}
                     </div>
                   )}
                 </div>
-                
+
                 {/* 화살표 아이콘 */}
                 <div className="event-item-arrow">
                   <ChevronRight size={20} />
@@ -258,5 +261,5 @@ export default function EventList() {
         </div>
       </div>
     </div>
-  )
+  );
 }
