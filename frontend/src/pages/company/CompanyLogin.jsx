@@ -7,13 +7,46 @@ export default function CompanyLogin() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
   const navigate = useNavigate();
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    // TODO: API call
-    console.log("Login:", { username, password, rememberMe });
-    navigate("/company/dashboard");
+    setIsLoading(true);
+    setError("");
+
+    try {
+      const response = await fetch("/api/auth/company/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          username: username.trim(),
+          password: password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // 로그인 성공 시 토큰을 localStorage에 저장
+        localStorage.setItem("company_token", data.access_token);
+        localStorage.setItem("company_id", data.company_id);
+        localStorage.setItem("company_name", data.company_name);
+
+        // 기업 대시보드로 이동
+        navigate("/company/dashboard");
+      } else {
+        setError(data.detail || "로그인에 실패했습니다.");
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      setError("네트워크 오류가 발생했습니다.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -29,6 +62,22 @@ export default function CompanyLogin() {
           </div>
 
           <form onSubmit={handleLogin} className="login-form">
+            {error && (
+              <div
+                className="error-message"
+                style={{
+                  backgroundColor: "#fee2e2",
+                  color: "#dc2626",
+                  padding: "12px",
+                  borderRadius: "6px",
+                  marginBottom: "16px",
+                  fontSize: "14px",
+                }}
+              >
+                {error}
+              </div>
+            )}
+
             <div className="form-group">
               <label>아이디</label>
               <input
@@ -38,6 +87,7 @@ export default function CompanyLogin() {
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="아이디를 입력하세요"
                 required
+                disabled={isLoading}
               />
             </div>
 
@@ -50,6 +100,7 @@ export default function CompanyLogin() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="비밀번호를 입력하세요"
                 required
+                disabled={isLoading}
               />
             </div>
 
@@ -59,6 +110,7 @@ export default function CompanyLogin() {
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
+                  disabled={isLoading}
                 />
                 <span>자동 로그인</span>
               </label>
@@ -68,8 +120,12 @@ export default function CompanyLogin() {
               </a>
             </div>
 
-            <button type="submit" className="btn btn-primary btn-login">
-              로그인
+            <button
+              type="submit"
+              className="btn btn-primary btn-login"
+              disabled={isLoading}
+            >
+              {isLoading ? "로그인 중..." : "로그인"}
             </button>
 
             <div className="register-link">

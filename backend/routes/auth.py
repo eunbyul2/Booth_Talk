@@ -3,17 +3,22 @@
 인증 라우트 - 매직 링크 + QR 코드 + 이메일
 """
 
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, status
-from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr
 
 from database import get_db
 from models.company import Company
-from services.auth_service import MagicLinkService
+from services.auth_service import (
+    MagicLinkService,
+    create_access_token,
+    verify_password,
+)
 
 
-router = APIRouter(prefix="/auth", tags=["인증"])
+router = APIRouter(tags=["인증"])
 
 
 class MagicLinkRequest(BaseModel):
@@ -29,7 +34,33 @@ class MagicLinkResponse(BaseModel):
     magic_link: str
     qr_code: str
     expires_at: str
-    email_sent_to: str
+    email_sent_to: str | None = None
+
+
+class CompanyInfo(BaseModel):
+    id: int
+    name: str
+    email: str | None = None
+    username: str
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class LoginResponse(BaseModel):
+    access_token: str
+    token_type: str
+    company: CompanyInfo
+
+
+class MagicLinkVerifyResponse(BaseModel):
+    success: bool
+    access_token: str
+    token_type: str
+    company: CompanyInfo
+    redirect_url: str | None = None
 
 
 @router.post("/magic-link", response_model=MagicLinkResponse)
@@ -70,7 +101,7 @@ async def request_magic_link(
     # 2. 매직 링크 생성 + QR 코드 + 이메일 발송
     magic_link_service = MagicLinkService(db)
     result = magic_link_service.generate_magic_link(company, background_tasks)
-    
+
     return MagicLinkResponse(
         success=True,
         message=f"{request.email}로 매직 링크가 발송되었습니다. 이메일을 확인하거나 QR 코드를 스캔하세요.",
@@ -78,7 +109,7 @@ async def request_magic_link(
     )
 
 
-@router.get("/verify")
+@router.get("/magic-verify", response_model=MagicLinkVerifyResponse)
 async def verify_magic_link(
     token: str,
     db: Session = Depends(get_db)
@@ -92,32 +123,43 @@ async def verify_magic_link(
     - 대시보드로 리다이렉트
     """
     
+    print(f"🔍 토큰 검증 시작: {token}")
+    
     # 토큰 검증
     magic_link_service = MagicLinkService(db)
     company = magic_link_service.verify_magic_link(token)
     
+    print(f"🔍 토큰 검증 결과: {company}")
+    
     if not company:
+        print(f"❌ 토큰 검증 실패: {token}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="유효하지 않거나 만료된 링크입니다."
         )
     
+    print(f"✅ 토큰 검증 성공: {company.company_name}")
+    
     # 실제로는 JWT 토큰 생성 후 프론트엔드로 리다이렉트
     # 여기서는 간단히 처리
     
-    return {
-        "success": True,
-        "message": "로그인 성공!",
-        "company": {
-            "id": company.id,
-            "name": company.company_name,
-            "email": company.email,
-        },
-        "redirect_url": f"/dashboard?company_id={company.id}"
-    }
+    access_token = create_access_token({"sub": str(company.id), "role": "company"})
+
+    return MagicLinkVerifyResponse(
+        success=True,
+        access_token=access_token,
+        token_type="bearer",
+        company=CompanyInfo(
+            id=company.id,
+            name=company.company_name,
+            email=company.email,
+            username=company.username,
+        ),
+        redirect_url=f"/company/dashboard?company_id={company.id}"
+    )
 
 
-@router.post("/resend-magic-link")
+@router.post("/resend-magic-link", response_model=MagicLinkResponse)
 async def resend_magic_link(
     request: MagicLinkRequest,
     background_tasks: BackgroundTasks,
@@ -149,9 +191,42 @@ async def resend_magic_link(
     # 새 매직 링크 생성
     magic_link_service = MagicLinkService(db)
     result = magic_link_service.generate_magic_link(company, background_tasks)
-    
-    return {
-        "success": True,
-        "message": "새 매직 링크가 발송되었습니다.",
-        "email_sent_to": company.email
-    }
+
+    return MagicLinkResponse(
+        success=True,
+        message="새 매직 링크가 발송되었습니다.",
+        **result
+    )
+
+
+@router.post("/login", response_model=LoginResponse)
+async def login(
+    payload: LoginRequest,
+    db: Session = Depends(get_db)
+):
+    """기업 계정 로그인 (아이디/비밀번호)"""
+
+    company: Company | None = db.query(Company).filter(Company.username == payload.username).first()
+
+    if not company or not verify_password(payload.password, company.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="아이디 또는 비밀번호가 올바르지 않습니다.",
+        )
+
+    access_token = create_access_token({"sub": str(company.id), "role": "company"})
+    company.last_login_at = datetime.utcnow()
+    company.login_count = (company.login_count or 0) + 1
+    db.add(company)
+    db.commit()
+
+    return LoginResponse(
+        access_token=access_token,
+        token_type="bearer",
+        company=CompanyInfo(
+            id=company.id,
+            name=company.company_name,
+            email=company.email,
+            username=company.username,
+        ),
+    )

@@ -1,78 +1,148 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Search, Filter, Calendar, MapPin, Heart } from 'lucide-react'
-import './EventList.css'
+import { useMemo, useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { Search, Calendar, MapPin, Clock, ChevronRight } from "lucide-react";
+import "./EventList.css";
+import { getVisitorEvents } from "../../apiClient";
 
-const MOCK_EVENTS = [
-  {
-    id: 1,
-    name: 'AI Summit Seoul & EXPO',
-    company: 'TechCorp',
-    booth: 'B-123',
-    date: '2025-11-10',
-    time: '14:00',
-    venue: '코엑스 그랜드볼룸',
-    benefits: '기념품 증정, 추첨 이벤트',
-    status: 'upcoming'
-  },
-  {
-    id: 2,
-    name: '전자제품 박람회',
-    company: 'ElecTech',
-    booth: 'A-45',
-    date: '2025-11-15',
-    time: '10:00',
-    venue: '킨텍스 1홀',
-    benefits: '할인 쿠폰 제공',
-    status: 'upcoming'
-  },
-  {
-    id: 3,
-    name: '바이오 테크 컨퍼런스',
-    company: 'BioInnovate',
-    booth: 'C-78',
-    date: '2025-11-12',
-    time: '13:00',
-    venue: '코엑스 B홀',
-    benefits: '무료 샘플 증정',
-    status: 'upcoming'
-  }
-]
+const FALLBACK_POSTER = "https://placehold.co/120x120?text=Event";
 
 export default function EventList() {
-  const navigate = useNavigate()
-  const [searchTerm, setSearchTerm] = useState('')
-  const [filterDate, setFilterDate] = useState('')
-  const [favorites, setFavorites] = useState([])
-  
-  const toggleFavorite = (eventId) => {
-    if (favorites.includes(eventId)) {
-      setFavorites(favorites.filter(id => id !== eventId))
-    } else {
-      setFavorites([...favorites, eventId])
-    }
-  }
-  
-  const filteredEvents = MOCK_EVENTS.filter(event => {
-    const matchesSearch = event.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         event.company.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesDate = !filterDate || event.date === filterDate
-    return matchesSearch && matchesDate
-  })
-  
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const exhibitionId = searchParams.get("exhibition_id");
+
+  const [searchTerm, setSearchTerm] = useState("");
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [totalCount, setTotalCount] = useState(0);
+  const [filterInfo, setFilterInfo] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError(null);
+
+    const timer = setTimeout(async () => {
+      try {
+        const params = {
+          only_available: false,
+          limit: 100,
+        };
+
+        if (searchTerm) {
+          params.keyword = searchTerm;
+        }
+
+        if (exhibitionId) {
+          params.event_type = exhibitionId;
+        }
+
+        const data = await getVisitorEvents(params);
+        if (!active) return;
+
+        const fetchedEvents = Array.isArray(data?.events) ? data.events : [];
+        setEvents(fetchedEvents);
+        setTotalCount(data?.total ?? fetchedEvents.length);
+        setFilterInfo(data?.filter_info ?? null);
+      } catch (err) {
+        if (!active) return;
+        console.error(err);
+        setError(
+          err instanceof Error
+            ? err.message
+            : "이벤트 목록을 불러오지 못했습니다."
+        );
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    }, 250);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [searchTerm, exhibitionId]);
+
+  const exhibition = useMemo(() => {
+    if (!events.length) return null;
+    const first = events[0];
+    const startDate = events.reduce((min, event) => {
+      const d = new Date(event.start_date);
+      return d < min ? d : min;
+    }, new Date(events[0].start_date));
+
+    const endDate = events.reduce((max, event) => {
+      const d = new Date(event.end_date || event.start_date);
+      return d > max ? d : max;
+    }, new Date(events[0].end_date || events[0].start_date));
+
+    return {
+      id: exhibitionId || first.venue_id || first.id,
+      name: first.venue_name || "전시 이벤트",
+      code: first.event_type || "이벤트",
+      startDate: startDate.toISOString().slice(0, 10),
+      endDate: endDate.toISOString().slice(0, 10),
+      hallInfo: first.location || "장소 정보 없음",
+      venueName: first.venue_name || "",
+      location: first.venue_location || "",
+    };
+  }, [events, exhibitionId]);
+
+  // 현재 날짜/시간 포맷팅
+  const getCurrentDateTime = () => {
+    const now = new Date();
+    const month = now.getMonth() + 1;
+    const day = now.getDate();
+    const dayNames = ["일", "월", "화", "수", "목", "금", "토"];
+    const dayName = dayNames[now.getDay()];
+    const hours = String(now.getHours()).padStart(2, "0");
+    const minutes = String(now.getMinutes()).padStart(2, "0");
+    return `${month}.${day}(${dayName}) ${hours}:${minutes}`;
+  };
+
+  // 날짜 포맷팅 (YYYY-MM-DD -> MM.DD(요일))
+  const formatDate = (dateStr) => {
+    if (!dateStr) return "날짜 미정";
+    const date = new Date(dateStr);
+    if (Number.isNaN(date.getTime())) return "날짜 미정";
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    const dayNames = ["일", "월", "화", "수", "목", "금", "토"];
+    const dayName = dayNames[date.getDay()];
+    return `${month}.${day}(${dayName})`;
+  };
+
+  // 검색 필터링
+  const filteredEvents = useMemo(() => {
+    if (!searchTerm) return events;
+
+    const searchLower = searchTerm.toLowerCase();
+    return events.filter((event) => {
+      const eventName = event.event_name?.toLowerCase() || "";
+      const companyName = event.company_name?.toLowerCase() || "";
+      const description = event.description?.toLowerCase() || "";
+      const booth = event.booth_number?.toLowerCase() || "";
+      return (
+        eventName.includes(searchLower) ||
+        companyName.includes(searchLower) ||
+        description.includes(searchLower) ||
+        booth.includes(searchLower)
+      );
+    });
+  }, [searchTerm, events]);
+
   return (
     <div className="event-list-page">
+      {/* 헤더 */}
       <div className="event-list-header">
         <div className="container">
-          <button 
-            className="btn-back"
-            onClick={() => navigate('/visitor')}
-          >
+          <button className="btn-back" onClick={() => navigate("/visitor")}>
             ← 홈으로
           </button>
-          
-          <h1>전시회 이벤트</h1>
-          
+
           <div className="search-filter">
             <div className="search-box">
               <Search size={20} />
@@ -83,76 +153,113 @@ export default function EventList() {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            
-            <div className="filter-box">
-              <Calendar size={20} />
-              <input
-                type="date"
-                value={filterDate}
-                onChange={(e) => setFilterDate(e.target.value)}
-              />
-            </div>
           </div>
         </div>
       </div>
-      
+
+      {/* 메인 컨텐츠 */}
       <div className="event-list-container container">
-        <div className="results-info">
-          <span>{filteredEvents.length}개의 이벤트</span>
-        </div>
-        
-        <div className="events-grid">
-          {filteredEvents.map(event => (
-            <div 
-              key={event.id} 
-              className="event-card"
-              onClick={() => navigate(`/visitor/event/${event.id}`)}
-            >
-              <button 
-                className={`btn-favorite ${favorites.includes(event.id) ? 'active' : ''}`}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  toggleFavorite(event.id)
-                }}
-              >
-                <Heart size={20} fill={favorites.includes(event.id) ? 'currentColor' : 'none'} />
-              </button>
-              
-              <div className="event-image">
-                <div className="event-badge">진행예정</div>
+        {/* 현재 날짜/시간 */}
+        <div className="current-datetime">{getCurrentDateTime()}</div>
+
+        {/* 행사 정보 카드 */}
+        {exhibition && (
+          <div className="exhibition-card">
+            <div className="exhibition-badge">{exhibition.code}</div>
+            <h2 className="exhibition-title">{exhibition.name}</h2>
+            <div className="exhibition-info">
+              <div className="info-item">
+                <Calendar size={16} />
+                <span>
+                  {formatDate(exhibition.startDate)} ~{" "}
+                  {formatDate(exhibition.endDate)}
+                </span>
               </div>
-              
-              <div className="event-content">
-                <h3 className="event-name">{event.name}</h3>
-                <p className="event-company">{event.company}</p>
-                
-                <div className="event-details">
-                  <div className="detail-item">
-                    <MapPin size={16} />
-                    <span>{event.venue}</span>
-                  </div>
-                  <div className="detail-item">
-                    <Calendar size={16} />
-                    <span>{event.date} {event.time}</span>
-                  </div>
-                </div>
-                
-                <div className="event-booth">
-                  부스 {event.booth}
-                </div>
-                
-                <div className="event-benefits">
-                  🎁 {event.benefits}
-                </div>
-                
-                <button className="btn-detail">
-                  상세보기 →
-                </button>
+              <div className="info-item">
+                <MapPin size={16} />
+                <span>{exhibition.hallInfo}</span>
               </div>
             </div>
-          ))}
+          </div>
+        )}
+
+        {/* 이벤트 리스트 섹션 */}
+        <div className="events-section">
+          <h3 className="section-title">참여 업체 이벤트</h3>
+          <div className="results-info">
+            <span>총 {totalCount}개의 이벤트</span>
+            {filterInfo?.target_date && filterInfo?.target_time && (
+              <span>
+                {formatDate(filterInfo.target_date)} {filterInfo.target_time}{" "}
+                기준
+              </span>
+            )}
+          </div>
+
+          {error && <div className="error-box">{error}</div>}
+
+          {loading && (
+            <div className="loading-box">이벤트를 불러오는 중입니다...</div>
+          )}
+
+          {!loading && !error && filteredEvents.length === 0 && (
+            <div className="empty-box">
+              조건에 맞는 이벤트가 없습니다. 다른 키워드로 검색해 보세요.
+            </div>
+          )}
+
+          <div className="events-list">
+            {filteredEvents.map((event) => (
+              <div
+                key={event.id}
+                className="event-item"
+                onClick={() => navigate(`/visitor/event/${event.id}`)}
+              >
+                {/* 이벤트 이미지 */}
+                <div className="event-item-image">
+                  <img
+                    src={event.image_url || FALLBACK_POSTER}
+                    alt={event.company_name}
+                  />
+                </div>
+
+                {/* 이벤트 정보 */}
+                <div className="event-item-info">
+                  <div className="event-item-header">
+                    <span className="booth-badge">
+                      {event.booth_number || "부스 정보 없음"}
+                    </span>
+                    <h4 className="event-item-name">{event.event_name}</h4>
+                  </div>
+
+                  {/* 시간대 */}
+                  <div className="time-slots">
+                    <Clock size={14} />
+                    <span className="time-slot">
+                      {event.available_hours || "시간 정보 없음"}
+                    </span>
+                  </div>
+
+                  <p className="event-item-description">
+                    {event.description || "등록된 설명이 없습니다."}
+                  </p>
+
+                  {event.benefits && (
+                    <div className="event-item-benefits">
+                      🎁 {event.benefits}
+                    </div>
+                  )}
+                </div>
+
+                {/* 화살표 아이콘 */}
+                <div className="event-item-arrow">
+                  <ChevronRight size={20} />
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>
-  )
+  );
 }

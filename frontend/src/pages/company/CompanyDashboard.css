@@ -134,6 +134,22 @@
   border-collapse: collapse;
 }
 
+.dashboard-error {
+  background: #fee2e2;
+  color: #b91c1c;
+  padding: 16px;
+  border-radius: 12px;
+  margin-bottom: 24px;
+  font-weight: 500;
+}
+
+.empty-state {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
 .events-table thead {
   background: var(--bg-gray);
 }

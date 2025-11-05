@@ -3,19 +3,31 @@
 - 현재 시간 기준 입장 가능한 이벤트만 표시
 - 방문 시간 변경 필터링 기능
 """
-from datetime import datetime, timedelta, date
-from typing import Optional, List
-from fastapi import APIRouter, Depends, Query, HTTPException
-from sqlalchemy.orm import Session
-from sqlalchemy import and_, or_
+from datetime import date, datetime, time as dt_time
+from typing import List, Optional
+
+import os
+from dotenv import load_dotenv
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
+from sqlalchemy import and_, func, or_
+from sqlalchemy.orm import Session
+
 from database import get_db
-from models import Event, Company
+from models import Company, Event, Survey, SurveyResponse as SurveyResponseModel, Venue
 
 router = APIRouter()
 
 
 # Response Models
+class SurveySummary(BaseModel):
+    id: int
+    title: str
+    is_active: bool
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+
+
 class EventResponse(BaseModel):
     id: int
     company_id: int
@@ -30,9 +42,17 @@ class EventResponse(BaseModel):
     description: Optional[str] = None
     booth_number: Optional[str] = None
     image_url: Optional[str] = None
+    latitude: Optional[str] = None
+    longitude: Optional[str] = None
+    venue_id: Optional[int] = None
+    venue_name: Optional[str] = None
+    venue_location: Optional[str] = None
+    venue_address: Optional[str] = None
     is_available_now: bool = Field(description="현재 입장 가능 여부")
     available_hours: str = Field(description="입장 가능 시간")
     days_until_start: int
+    active_survey_id: Optional[int] = None
+    surveys: List[SurveySummary] = Field(default_factory=list)
 
 
 class EventSearchResponse(BaseModel):
@@ -43,10 +63,43 @@ class EventSearchResponse(BaseModel):
     filter_info: dict
 
 
-def is_event_available(
-    event: Event,
-    target_datetime: datetime
-) -> bool:
+class SurveyDetailResponse(BaseModel):
+    id: int
+    event_id: int
+    title: str
+    description: Optional[str] = None
+    questions: List[dict]
+    is_active: bool
+    require_email: bool
+    require_phone: bool
+    current_responses: int
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+    event_name: str
+    company_name: str
+
+
+class SurveyResponseCreateRequest(BaseModel):
+    answers: dict
+    respondent_name: Optional[str] = None
+    respondent_email: Optional[str] = None
+    respondent_company: Optional[str] = None
+    respondent_phone: Optional[str] = None
+    booth_number: Optional[str] = None
+    rating: Optional[int] = None
+    review: Optional[str] = None
+
+
+def _parse_time(value: Optional[str]) -> Optional[dt_time]:
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value, "%H:%M").time()
+    except ValueError:
+        return None
+
+
+def is_event_available(event: Event, target_datetime: datetime) -> bool:
     """
     특정 시간에 이벤트 입장이 가능한지 확인
     
@@ -58,15 +111,21 @@ def is_event_available(
         입장 가능 여부
     """
     # 날짜 범위 확인
-    if not (event.start_date <= target_datetime.date() <= event.end_date):
+    event_end = event.end_date or event.start_date
+    if not (event.start_date <= target_datetime.date() <= event_end):
         return False
     
     # 시간 확인
+    event_start = _parse_time(event.start_time)
+    event_finish = _parse_time(event.end_time)
+    if not event_start or not event_finish:
+        return True
+
     target_time = target_datetime.time()
-    event_start = datetime.strptime(event.start_time, "%H:%M").time()
-    event_end = datetime.strptime(event.end_time, "%H:%M").time()
-    
-    return event_start <= target_time <= event_end
+    if event_start <= event_finish:
+        return event_start <= target_time <= event_finish
+    # Overnight events (rare)
+    return target_time >= event_start or target_time <= event_finish
 
 
 def calculate_event_info(event: Event, current_time: datetime) -> dict:
@@ -77,13 +136,61 @@ def calculate_event_info(event: Event, current_time: datetime) -> dict:
     days_until = (event.start_date - current_time.date()).days
     
     # 입장 가능 시간 포맷팅
-    available_hours = f"{event.start_time} - {event.end_time}"
+    if event.start_time or event.end_time:
+        available_hours = f"{event.start_time or '--:--'} - {event.end_time or '--:--'}"
+    else:
+        available_hours = "시간 정보 없음"
     
     return {
         "is_available_now": is_available,
         "available_hours": available_hours,
         "days_until_start": days_until
     }
+
+
+def build_event_response(
+    event: Event,
+    company: Company,
+    current_time: datetime,
+    venue: Optional[Venue]
+) -> EventResponse:
+    event_info = calculate_event_info(event, current_time)
+    active_survey = next((survey for survey in event.surveys if survey.is_active), None)
+    surveys = [
+        SurveySummary(
+            id=survey.id,
+            title=survey.title,
+            is_active=survey.is_active,
+            start_date=survey.start_date,
+            end_date=survey.end_date,
+        )
+        for survey in event.surveys
+    ]
+
+    return EventResponse(
+        id=event.id,
+        company_id=event.company_id,
+        company_name=company.company_name,
+        event_name=event.event_name,
+        event_type=event.event_type,
+        start_date=event.start_date,
+        end_date=event.end_date or event.start_date,
+        start_time=event.start_time,
+        end_time=event.end_time,
+        location=event.location,
+        description=event.description,
+        booth_number=event.booth_number,
+        image_url=event.image_url,
+        latitude=event.latitude,
+        longitude=event.longitude,
+        venue_id=venue.id if venue else None,
+        venue_name=venue.venue_name if venue else None,
+        venue_location=venue.location if venue else None,
+        venue_address=venue.address if venue else None,
+        active_survey_id=active_survey.id if active_survey else None,
+        surveys=surveys,
+        **event_info,
+    )
 
 
 @router.get("/visitor/events", response_model=EventSearchResponse)
@@ -94,7 +201,9 @@ async def search_available_events(
     event_type: Optional[str] = Query(None, description="이벤트 타입 필터"),
     location: Optional[str] = Query(None, description="장소 필터"),
     company_name: Optional[str] = Query(None, description="회사명 검색"),
+    keyword: Optional[str] = Query(None, description="이벤트명/설명 검색 키워드"),
     only_available: bool = Query(True, description="현재/지정시간 입장 가능한 이벤트만"),
+    sort_by: Optional[str] = Query("date_asc", description="정렬 방식: date_asc(시간 빠른 순), date_desc(시간 느린 순)"),
     limit: int = Query(50, le=100),
     offset: int = Query(0)
 ):
@@ -118,12 +227,11 @@ async def search_available_events(
         target_datetime = datetime.now()
     
     # 기본 쿼리
-    query = db.query(Event, Company).join(
+    query = db.query(Event, Company, Venue).join(
         Company, Event.company_id == Company.id
-    )
-    
+    ).outerjoin(Venue, Event.venue_id == Venue.id)
+
     # 날짜 범위 필터 (종료되지 않은 이벤트만)
-    query = query.filter(Event.end_date >= target_datetime.date())
     query = query.filter(or_(Event.end_date.is_(None), Event.end_date >= target_datetime.date()))
     # 입장 가능한 이벤트만 필터링
     if only_available:
@@ -146,6 +254,23 @@ async def search_available_events(
     # 회사명 검색
     if company_name:
         query = query.filter(Company.company_name.ilike(f"%{company_name}%"))
+
+    # 키워드 검색 (이벤트명/설명/회사명)
+    if keyword:
+        like_pattern = f"%{keyword}%"
+        query = query.filter(
+            or_(
+                Event.event_name.ilike(like_pattern),
+                Event.description.ilike(like_pattern),
+                Company.company_name.ilike(like_pattern),
+            )
+        )
+    
+    # 정렬
+    if sort_by == "date_desc":
+        query = query.order_by(Event.start_date.desc(), Event.start_time.desc())
+    else:  # date_asc (default)
+        query = query.order_by(Event.start_date.asc(), Event.start_time.asc())
     
     # 전체 개수 계산
     total_count = query.count()
@@ -154,45 +279,25 @@ async def search_available_events(
     results = query.offset(offset).limit(limit).all()
     
     # 응답 데이터 구성
-    event_responses = []
+    event_responses: List[EventResponse] = []
     available_count = 0
     upcoming_count = 0
-    
-    for event, company in results:
-        # 이벤트 정보 계산
-        event_info = calculate_event_info(event, target_datetime)
-        
-        # 시간 필터링 (only_available일 때)
-        if only_available:
-            if not event_info["is_available_now"]:
-                continue
-        
-        # 카운트 업데이트
-        if event_info["is_available_now"]:
+
+    for event, company, venue in results:
+        response = build_event_response(event, company, target_datetime, venue)
+
+        if response.is_available_now:
             available_count += 1
-        elif event_info["days_until_start"] > 0:
+        if response.days_until_start > 0:
             upcoming_count += 1
-        
-        event_response = EventResponse(
-            id=event.id,
-            company_id=event.company_id,
-            company_name=company.company_name,
-            event_name=event.event_name,
-            event_type=event.event_type,
-            start_date=event.start_date,
-            end_date=event.end_date,
-            start_time=event.start_time,
-            end_time=event.end_time,
-            location=event.location,
-            description=event.description,
-            booth_number=event.booth_number,
-            image_url=event.image_url,
-            **event_info
-        )
-        event_responses.append(event_response)
+
+        if only_available and not response.is_available_now:
+            continue
+
+        event_responses.append(response)
     
     return EventSearchResponse(
-        total=total_count,
+        total=len(event_responses),
         available_count=available_count,
         upcoming_count=upcoming_count,
         events=event_responses,
@@ -203,6 +308,7 @@ async def search_available_events(
                 "event_type": event_type,
                 "location": location,
                 "company_name": company_name,
+                "keyword": keyword,
                 "only_available": only_available
             }
         }
@@ -218,14 +324,14 @@ async def get_event_detail(
     """
     이벤트 상세 정보 조회
     """
-    result = db.query(Event, Company).join(
+    result = db.query(Event, Company, Venue).join(
         Company, Event.company_id == Company.id
-    ).filter(Event.id == event_id).first()
+    ).outerjoin(Venue, Event.venue_id == Venue.id).filter(Event.id == event_id).first()
     
     if not result:
         raise HTTPException(status_code=404, detail="이벤트를 찾을 수 없습니다")
     
-    event, company = result
+    event, company, venue = result
     
     # 방문 시간 설정
     if visit_time:
@@ -233,25 +339,99 @@ async def get_event_detail(
     else:
         target_datetime = datetime.now()
     
-    # 이벤트 정보 계산
-    event_info = calculate_event_info(event, target_datetime)
-    
-    return EventResponse(
-        id=event.id,
-        company_id=event.company_id,
-        company_name=company.company_name,
+    return build_event_response(event, company, target_datetime, venue)
+
+
+@router.get("/visitor/surveys/{survey_id}", response_model=SurveyDetailResponse)
+async def get_survey_detail(
+    survey_id: int,
+    db: Session = Depends(get_db)
+):
+    survey_query = db.query(Survey, Event, Company).join(
+        Event, Survey.event_id == Event.id
+    ).join(Company, Event.company_id == Company.id)
+
+    result = survey_query.filter(Survey.id == survey_id).first()
+
+    if not result:
+        raise HTTPException(status_code=404, detail="설문을 찾을 수 없습니다")
+
+    survey, event, company = result
+
+    return SurveyDetailResponse(
+        id=survey.id,
+        event_id=survey.event_id,
+        title=survey.title,
+        description=survey.description,
+        questions=survey.questions or [],
+        is_active=survey.is_active,
+        require_email=survey.require_email,
+        require_phone=survey.require_phone,
+        current_responses=survey.current_responses or 0,
+        start_date=survey.start_date,
+        end_date=survey.end_date,
         event_name=event.event_name,
-        event_type=event.event_type,
-        start_date=event.start_date,
-        end_date=event.end_date,
-        start_time=event.start_time,
-        end_time=event.end_time,
-        location=event.location,
-        description=event.description,
-        booth_number=event.booth_number,
-        image_url=event.image_url,
-        **event_info
+        company_name=company.company_name,
     )
+
+
+@router.post("/visitor/surveys/{survey_id}/responses")
+async def submit_survey_response(
+    survey_id: int,
+    payload: SurveyResponseCreateRequest,
+    db: Session = Depends(get_db)
+):
+    survey = db.query(Survey).filter(Survey.id == survey_id).first()
+
+    if not survey:
+        raise HTTPException(status_code=404, detail="설문을 찾을 수 없습니다")
+
+    if not survey.is_active:
+        raise HTTPException(status_code=400, detail="현재 응답을 받을 수 없는 설문입니다")
+
+    if payload.rating is not None and not (1 <= payload.rating <= 5):
+        raise HTTPException(status_code=400, detail="평점은 1에서 5 사이여야 합니다")
+
+    response = SurveyResponseModel(
+        survey_id=survey_id,
+        respondent_name=payload.respondent_name,
+        respondent_email=payload.respondent_email,
+        respondent_phone=payload.respondent_phone,
+        respondent_company=payload.respondent_company,
+        booth_number=payload.booth_number,
+        answers=payload.answers,
+        rating=payload.rating,
+        review=payload.review,
+    )
+
+    db.add(response)
+    survey.current_responses = (survey.current_responses or 0) + 1
+    db.commit()
+    db.refresh(response)
+
+    return {
+        "success": True,
+        "survey_id": survey_id,
+        "response_id": response.id,
+        "submitted_at": response.submitted_at,
+    }
+
+
+@router.get("/visitor/maps-api-key")
+@router.get("/visitor/maps_api_key")
+@router.get("/maps-api-key")
+async def get_google_maps_api_key():
+    """프론트엔드에서 사용할 Google Maps API 키를 반환합니다.
+
+    키는 backend/.env 파일의 GOOGLE_MAPS_API_KEY 항목에서 로드됩니다.
+    보안을 위해 키 사용 도메인을 Google Cloud 콘솔에서 "HTTP referrer"로 제한하세요.
+    """
+    # .env 로드 (이미 로드되어 있다면 중복 호출해도 무해)
+    load_dotenv()
+    api_key = os.getenv("GOOGLE_MAPS_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=404, detail="Google Maps API 키가 설정되지 않았습니다.")
+    return {"key": api_key}
 
 
 @router.get("/visitor/events/stats")
