@@ -37,3 +37,6 @@ Thumbs.db
 # 기타
 *.bak
 *.tmp
+
+# 업로드된 파일
+backend/uploads/

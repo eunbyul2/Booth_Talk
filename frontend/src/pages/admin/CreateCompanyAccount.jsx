@@ -31,25 +31,28 @@ export default function CreateCompanyAccount() {
     setIsLoading(true);
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // 🔄 실제 API 호출로 변경
+      const response = await fetch("/api/admin/companies", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          // TODO: Authorization 헤더 추가 필요
+        },
+        body: JSON.stringify({
+          company_name: companyName,
+          email: `contact@${companyName.toLowerCase().replace(/\s+/g, "")}.com`, // 임시 이메일
+        }),
+      });
 
-      const mockData = {
-        company_id: Math.floor(Math.random() * 1000),
-        company_name: companyName,
-        username: companyName.toLowerCase().replace(/\s+/g, "_"),
-        temp_password: Math.random().toString(36).slice(-8),
-        magic_link: `${
-          window.location.origin
-        }/company/magic-login?token=${Math.random().toString(36).slice(-32)}`,
-        expires_at: new Date(
-          Date.now() + 7 * 24 * 60 * 60 * 1000
-        ).toISOString(),
-      };
+      if (!response.ok) {
+        throw new Error("기업 생성에 실패했습니다");
+      }
 
-      setResult(mockData);
+      const responseData = await response.json();
+      setResult(responseData);
       setCompanyName("");
     } catch (error) {
-      alert("오류가 발생했습니다");
+      alert("오류가 발생했습니다: " + error.message);
       console.error(error);
     } finally {
       setIsLoading(false);
