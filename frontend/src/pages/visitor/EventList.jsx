@@ -2,9 +2,9 @@ import { useMemo, useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Search, Calendar, MapPin, Clock, ChevronRight } from "lucide-react";
 import "./EventList.css";
-import { getVisitorEvents } from "../../apiClient";
+import { getVisitorEvents, getVisitorEventDetail } from "../../apiClient";
 
-const FALLBACK_POSTER = "https://placehold.co/120x120?text=Event";
+const FALLBACK_POSTER = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Crect width='120' height='120' fill='%231E3A8A'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='14' fill='white'%3EEvent%3C/text%3E%3C/svg%3E";
 
 export default function EventList() {
   const navigate = useNavigate();
@@ -12,18 +12,20 @@ export default function EventList() {
   const exhibitionId = searchParams.get("exhibition_id");
   const urlSearchQuery = searchParams.get("search"); // URL에서 검색어 추출
 
-  const [searchTerm, setSearchTerm] = useState(""); // 사용자 입력용
+  const [searchTerm, setSearchTerm] = useState(urlSearchQuery || ""); // URL 검색어로 초기화
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [totalCount, setTotalCount] = useState(0);
   const [filterInfo, setFilterInfo] = useState(null);
 
-  // URL 파라미터가 변경될 때만 검색어 초기화
+  // URL 파라미터 변경 시 검색어 업데이트
   useEffect(() => {
     const newSearchQuery = searchParams.get("search");
-    setSearchTerm(newSearchQuery || "");
-  }, [searchParams.get("search")]); // URL의 search 파라미터만 감시
+    if (newSearchQuery !== searchTerm) {
+      setSearchTerm(newSearchQuery || "");
+    }
+  }, [searchParams, searchTerm]);
 
   useEffect(() => {
     let active = true;
@@ -32,28 +34,31 @@ export default function EventList() {
 
     const timer = setTimeout(async () => {
       try {
-        const params = {
-          only_available: false,
-          limit: 100,
-        };
+        if (exhibitionId && !searchTerm) {
+          const eventDetail = await getVisitorEventDetail(exhibitionId);
+          if (!active) return;
+          const detailArray = eventDetail ? [eventDetail] : [];
+          setEvents(detailArray);
+          setTotalCount(detailArray.length);
+          setFilterInfo(null);
+        } else {
+          const params = {
+            only_available: false,
+            limit: 100,
+          };
 
-        // URL에서 직접 검색어 가져오기
-        const urlSearchQuery = searchParams.get("search");
-        if (urlSearchQuery) {
-          params.keyword = urlSearchQuery;
+          if (searchTerm) {
+            params.keyword = searchTerm;
+          }
+
+          const data = await getVisitorEvents(params);
+          if (!active) return;
+
+          const fetchedEvents = Array.isArray(data?.events) ? data.events : [];
+          setEvents(fetchedEvents);
+          setTotalCount(data?.total ?? fetchedEvents.length);
+          setFilterInfo(data?.filter_info ?? null);
         }
-
-        if (exhibitionId) {
-          params.event_type = exhibitionId;
-        }
-
-        const data = await getVisitorEvents(params);
-        if (!active) return;
-
-        const fetchedEvents = Array.isArray(data?.events) ? data.events : [];
-        setEvents(fetchedEvents);
-        setTotalCount(data?.total ?? fetchedEvents.length);
-        setFilterInfo(data?.filter_info ?? null);
       } catch (err) {
         if (!active) return;
         console.error(err);
@@ -73,7 +78,7 @@ export default function EventList() {
       active = false;
       clearTimeout(timer);
     };
-  }, [searchParams.get("search"), exhibitionId]); // URL 파라미터 기반으로 변경
+  }, [searchTerm, exhibitionId]);
 
   const exhibition = useMemo(() => {
     if (!events.length) return null;
@@ -160,20 +165,6 @@ export default function EventList() {
                 placeholder="기업명 또는 이벤트명 검색..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    // 엔터를 누르면 URL 파라미터로 검색어 업데이트
-                    const params = new URLSearchParams();
-                    if (exhibitionId) params.set("exhibition_id", exhibitionId);
-                    if (searchTerm.trim())
-                      params.set("search", searchTerm.trim());
-
-                    const newUrl = `/visitor/events${
-                      params.toString() ? `?${params.toString()}` : ""
-                    }`;
-                    navigate(newUrl);
-                  }
-                }}
               />
             </div>
           </div>
@@ -184,23 +175,6 @@ export default function EventList() {
       <div className="event-list-container container">
         {/* 현재 날짜/시간 */}
         <div className="current-datetime">{getCurrentDateTime()}</div>
-
-        {/* 검색 결과 상태 */}
-        {searchParams.get("search") && (
-          <div
-            style={{ marginBottom: "16px", fontSize: "14px", color: "#6b7280" }}
-          >
-            <strong style={{ color: "#374151" }}>
-              "{searchParams.get("search")}"
-            </strong>{" "}
-            검색 결과
-            <span
-              style={{ color: "#059669", fontWeight: "600", marginLeft: "8px" }}
-            >
-              ({events.length}건)
-            </span>
-          </div>
-        )}
 
         {/* 행사 정보 카드 */}
         {exhibition && (
@@ -260,6 +234,10 @@ export default function EventList() {
                   <img
                     src={event.image_url || FALLBACK_POSTER}
                     alt={event.company_name}
+                    onError={(e) => {
+                      e.target.onerror = null; // Prevent infinite loop
+                      e.target.src = FALLBACK_POSTER;
+                    }}
                   />
                 </div>
 

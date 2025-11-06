@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Calendar,
@@ -9,26 +9,79 @@ import {
   Share2,
   Heart,
 } from "lucide-react";
+import { getVisitorEventDetail } from "../../apiClient";
 import "./EventDetail.css";
 
 export default function EventDetail() {
   const { eventId } = useParams();
   const navigate = useNavigate();
   const [isFavorite, setIsFavorite] = useState(false);
+  const [event, setEvent] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const event = {
-    id: Number(eventId),
-    name: "AI Summit Seoul & EXPO",
-    company: "TechCorp",
-    booth: "B-123",
-    date: "2025-11-10",
-    time: "14:00 - 17:00",
-    venue: "코엑스 그랜드볼룸 + B홀",
-    description:
-      "AI 기술의 최신 트렌드와 혁신적인 솔루션을 소개합니다. 전문가들의 강연과 데모 체험이 준비되어 있습니다.",
-    participationMethod: "현장 참여 또는 QR 코드 스캔",
-    benefits: "기념품 증정, 경품 추첨 이벤트, 무료 상담",
-    hasSurvey: true,
+  useEffect(() => {
+    const fetchEventDetail = async () => {
+      try {
+        setLoading(true);
+        const data = await getVisitorEventDetail(eventId);
+        setEvent(data);
+      } catch (err) {
+        console.error("이벤트 정보를 불러오는 데 실패했습니다:", err);
+        setError("이벤트 정보를 불러올 수 없습니다.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (eventId) {
+      fetchEventDetail();
+    }
+  }, [eventId]);
+
+  if (loading) {
+    return (
+      <div className="event-detail-page">
+        <div className="detail-container container">
+          <p style={{ textAlign: "center", padding: "2rem", color: "rgba(200, 210, 255, 0.7)" }}>
+            로딩 중...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !event) {
+    return (
+      <div className="event-detail-page">
+        <div className="detail-container container">
+          <p style={{ textAlign: "center", padding: "2rem", color: "rgba(255, 100, 120, 0.9)" }}>
+            {error || "이벤트를 찾을 수 없습니다."}
+          </p>
+          <button onClick={() => navigate("/visitor/events")} style={{ marginTop: "1rem" }}>
+            목록으로 돌아가기
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const formatDate = (startDate, endDate) => {
+    if (!startDate) return "";
+    const start = new Date(startDate).toLocaleDateString("ko-KR");
+    if (endDate && startDate !== endDate) {
+      const end = new Date(endDate).toLocaleDateString("ko-KR");
+      return `${start} ~ ${end}`;
+    }
+    return start;
+  };
+
+  const formatTime = (startTime, endTime) => {
+    if (!startTime) return "시간 미정";
+    if (endTime) {
+      return `${startTime} - ${endTime}`;
+    }
+    return startTime;
   };
 
   const handleShare = () => {
@@ -63,17 +116,36 @@ export default function EventDetail() {
 
       <div className="detail-container container">
         <div className="detail-content">
-          <div className="event-main-image">
-            <div className="image-placeholder">
-              <span>📸</span>
-              <p>이벤트 포스터</p>
-            </div>
+          <div className={`event-main-image ${!event.image_url ? "pending" : ""}`}>
+            {event.image_url ? (
+              <>
+                <img
+                  src={event.image_url}
+                  alt={event.event_name}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover"
+                  }}
+                />
+                <div className="image-overlay">
+                  주최측이 이미지를 등록할 예정입니다
+                </div>
+              </>
+            ) : (
+              <div className="image-placeholder">
+                <span>📸</span>
+                <p>주최측이 이미지를 등록할 예정입니다</p>
+              </div>
+            )}
           </div>
 
           <div className="event-info-section">
-            <div className="booth-badge">부스 {event.booth}</div>
-            <h1 className="event-title">{event.name}</h1>
-            <p className="event-company">{event.company}</p>
+            {event.booth_number && (
+              <div className="booth-badge">부스 {event.booth_number}</div>
+            )}
+            <h1 className="event-title">{event.event_name}</h1>
+            <p className="event-company">{event.company_name}</p>
 
             <div className="info-grid">
               <div className="info-item">
@@ -82,7 +154,9 @@ export default function EventDetail() {
                 </div>
                 <div className="info-content">
                   <div className="info-label">날짜</div>
-                  <div className="info-value">{event.date}</div>
+                  <div className="info-value">
+                    {formatDate(event.start_date, event.end_date)}
+                  </div>
                 </div>
               </div>
 
@@ -92,42 +166,52 @@ export default function EventDetail() {
                 </div>
                 <div className="info-content">
                   <div className="info-label">시간</div>
-                  <div className="info-value">{event.time}</div>
+                  <div className="info-value">
+                    {formatTime(event.start_time, event.end_time)}
+                  </div>
                 </div>
               </div>
 
-              <div className="info-item">
-                <div className="info-icon">
-                  <MapPin size={20} />
+              {event.location && (
+                <div className="info-item">
+                  <div className="info-icon">
+                    <MapPin size={20} />
+                  </div>
+                  <div className="info-content">
+                    <div className="info-label">장소</div>
+                    <div className="info-value">{event.location}</div>
+                  </div>
                 </div>
-                <div className="info-content">
-                  <div className="info-label">장소</div>
-                  <div className="info-value">{event.venue}</div>
+              )}
+
+              {event.benefits && (
+                <div className="info-item">
+                  <div className="info-icon">
+                    <Gift size={20} />
+                  </div>
+                  <div className="info-content">
+                    <div className="info-label">혜택</div>
+                    <div className="info-value">{event.benefits}</div>
+                  </div>
                 </div>
+              )}
+            </div>
+
+            {event.description && (
+              <div className="section-box">
+                <h3>이벤트 설명</h3>
+                <p>{event.description}</p>
               </div>
+            )}
 
-              <div className="info-item">
-                <div className="info-icon">
-                  <Gift size={20} />
-                </div>
-                <div className="info-content">
-                  <div className="info-label">혜택</div>
-                  <div className="info-value">{event.benefits}</div>
-                </div>
+            {event.participation_method && (
+              <div className="section-box">
+                <h3>참여 방법</h3>
+                <p>{event.participation_method}</p>
               </div>
-            </div>
+            )}
 
-            <div className="section-box">
-              <h3>이벤트 설명</h3>
-              <p>{event.description}</p>
-            </div>
-
-            <div className="section-box">
-              <h3>참여 방법</h3>
-              <p>{event.participationMethod}</p>
-            </div>
-
-            {event.hasSurvey && (
+            {event.active_survey_id && (
               <button
                 className="btn btn-primary btn-large"
                 onClick={() => navigate(`/visitor/survey/${eventId}`)}
