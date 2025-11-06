@@ -1,3 +1,5 @@
+/* Updated: Uses global.css variables */
+
 .admin-dashboard-page {
   min-height: 100vh;
   background: var(--bg-gray);
@@ -54,7 +56,7 @@
 }
 
 .stat-card:hover {
-  transform: translateY(-2px);
+  transform: translateY(var(--lift-sm));
   box-shadow: var(--shadow-md);
 }
 
