@@ -1,3 +1,5 @@
+/* Updated: Uses global.css variables and animations */
+
 .magic-login-page {
   min-height: 100vh;
   display: flex;
@@ -5,8 +7,8 @@
   justify-content: center;
   background: linear-gradient(
     135deg,
-    var(--primary-500) 0%,
-    var(--primary-700) 100%
+    var(--primary-color) 0%,
+    var(--primary-hover) 100%
   );
   padding: 24px;
 }
@@ -22,18 +24,7 @@
   padding: 48px 40px;
   text-align: center;
   box-shadow: var(--shadow-xl);
-  animation: slideUp 0.4s ease-out;
-}
-
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  animation: slideUp 0.4s ease-out; /* Uses global.css animation */
 }
 
 .status-icon {
@@ -48,45 +39,23 @@
 
 .status-icon.loading {
   background: var(--primary-50);
-  color: var(--primary-600);
+  color: var(--primary-color);
 }
 
 .status-icon.success {
   background: var(--success-50);
   color: var(--success-600);
-  animation: scaleIn 0.5s ease-out;
+  animation: scaleIn 0.5s ease-out; /* Uses global.css animation */
 }
 
 .status-icon.error {
   background: var(--danger-50);
   color: var(--danger-600);
-  animation: shake 0.5s ease-out;
-}
-
-@keyframes scaleIn {
-  from {
-    transform: scale(0);
-  }
-  to {
-    transform: scale(1);
-  }
-}
-
-@keyframes shake {
-  0%,
-  100% {
-    transform: translateX(0);
-  }
-  25% {
-    transform: translateX(-10px);
-  }
-  75% {
-    transform: translateX(10px);
-  }
+  animation: shake 0.5s ease-out; /* Uses global.css animation */
 }
 
 .spin-animation {
-  animation: spin 1s linear infinite;
+  animation: spin 1s linear infinite; /* Uses global.css animation */
 }
 
 .status-box h2 {
@@ -110,7 +79,7 @@
   display: inline-block;
   padding: 12px 24px;
   background: var(--primary-50);
-  color: var(--primary-700);
+  color: var(--primary-color);
   border-radius: var(--radius-full);
   font-weight: 600;
   font-size: 16px;

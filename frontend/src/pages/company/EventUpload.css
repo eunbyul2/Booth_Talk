@@ -1,6 +1,8 @@
+/* Updated: Uses global.css variables */
+
 .event-upload-page {
   min-height: 100vh;
-  background: #f5f5f5;
+  background: var(--bg-gray);
 }
 
 .upload-container {
@@ -50,8 +52,8 @@
 }
 
 .optional-badge {
-  background: #e3f2fd;
-  color: #1976d2;
+  background: var(--primary-50);
+  color: var(--primary-700);
   font-size: 12px;
   font-weight: 500;
   padding: 2px 8px;
@@ -86,7 +88,7 @@
 
 .upload-box:hover {
   border-color: var(--primary-color);
-  background: #eef2ff;
+  background: var(--primary-50);
 }
 
 .upload-box svg {
@@ -151,7 +153,7 @@
   justify-content: center;
   gap: 12px;
   padding: 16px;
-  background: #eef2ff;
+  background: var(--primary-50);
   border-radius: 8px;
   margin-top: 16px;
   color: var(--primary-color);
@@ -197,7 +199,7 @@
   box-shadow: var(--shadow);
 }
 
-@media (max-width: 968px) {
+@media (max-width: 768px) {
   .upload-content {
     grid-template-columns: 1fr;
   }
@@ -220,18 +222,18 @@
   }
 }
 
-/* 📄 PDF 업로드 스타일 */
+/* PDF 업로드 스타일 */
 .pdf-upload-box {
-  border: 2px dashed #d1d5db;
-  background: #f9fafb;
-  color: #6b7280;
+  border: 2px dashed var(--gray-300);
+  background: var(--gray-50);
+  color: var(--gray-500);
   transition: all 0.2s ease;
 }
 
 .pdf-upload-box:hover {
-  border-color: #3b82f6;
-  background: #eff6ff;
-  color: #3b82f6;
+  border-color: var(--primary-color);
+  background: var(--primary-50);
+  color: var(--primary-color);
 }
 
 .pdf-preview {
@@ -239,8 +241,8 @@
   align-items: center;
   justify-content: space-between;
   padding: 16px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
   border-radius: 8px;
 }
 
@@ -273,8 +275,8 @@
   justify-content: center;
   width: 32px;
   height: 32px;
-  background: #fee2e2;
-  color: #dc2626;
+  background: var(--danger-bg);
+  color: var(--danger-600);
   border: none;
   border-radius: 6px;
   cursor: pointer;
@@ -282,5 +284,5 @@
 }
 
 .btn-remove-pdf:hover {
-  background: #fecaca;
+  background: var(--danger-100);
 }
