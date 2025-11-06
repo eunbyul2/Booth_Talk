@@ -19,6 +19,35 @@ from models import Company, Event, Survey, SurveyResponse as SurveyResponseModel
 router = APIRouter()
 
 
+# Helper Functions
+def get_valid_image_url(event) -> Optional[str]:
+    """
+    이미지 URL을 반환하되, placeholder.com이나 via.placeholder.com 같은
+    외부 의존성 URL은 None으로 반환하여 프론트에서 fallback 사용
+
+    우선순위:
+    1) has_custom_image=True인 커스텀 이미지 (단, placeholder 제외)
+    2) Unsplash 자동 생성 이미지
+    3) None (프론트에서 fallback)
+    """
+    # 1) 커스텀 이미지 우선 (placeholder 제외)
+    if event.has_custom_image and event.image_url:
+        # 단, placeholder URL은 무시
+        if not ("placeholder.com" in event.image_url or "placehold.co" in event.image_url):
+            return event.image_url
+
+    # 2) Unsplash 자동 생성 이미지
+    if event.unsplash_image_url:
+        return event.unsplash_image_url
+
+    # 3) 기본 image_url이 있고 placeholder가 아닌 경우
+    if event.image_url and not ("placeholder.com" in event.image_url or "placehold.co" in event.image_url):
+        return event.image_url
+
+    # 4) 모든 조건 실패 시 None 반환
+    return None
+
+
 # Response Models
 class SurveySummary(BaseModel):
     id: int
@@ -180,7 +209,8 @@ def build_event_response(
         location=event.location,
         description=event.description,
         booth_number=event.booth_number,
-        image_url=event.image_url,
+        # 이미지 우선순위: 1) 주최측 커스텀 이미지, 2) Unsplash 자동 생성 이미지, 3) None
+        image_url=get_valid_image_url(event),
         latitude=event.latitude,
         longitude=event.longitude,
         venue_id=venue.id if venue else None,
