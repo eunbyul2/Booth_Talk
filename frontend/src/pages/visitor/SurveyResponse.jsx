@@ -89,6 +89,9 @@ export default function SurveyResponse() {
             돌아가기
           </button>
           <h1>{survey.title}</h1>
+          <p className="survey-subtitle">
+            전시 경험을 더욱 빛나게 만들 수 있도록, 느낀 점과 아이디어를 자유롭게 들려주세요.
+          </p>
         </div>
       </div>
 
