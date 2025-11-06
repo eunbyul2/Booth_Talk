@@ -1,11 +1,55 @@
 import axios, { AxiosError } from "axios";
 
-const rawBaseUrl = (
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:8000"
-).trim();
-const API_BASE_URL = rawBaseUrl.endsWith("/")
-  ? rawBaseUrl.slice(0, -1)
-  : rawBaseUrl;
+function sanitizeUrl(url: string): string {
+  return url.endsWith("/") ? url.slice(0, -1) : url;
+}
+
+function isRelativePath(value: string): boolean {
+  return value.startsWith("/") && !value.startsWith("//");
+}
+
+function pickEnvBaseUrl(): string | null {
+  const env = import.meta.env || {};
+  const candidates = [
+    env.VITE_API_BASE_URL,
+    env.VITE_BACKEND_URL,
+  ] as Array<string | undefined>;
+
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    const value = String(candidate).trim();
+    if (!value) continue;
+
+    if (isRelativePath(value) && typeof window !== "undefined") {
+      return sanitizeUrl(`${window.location.origin}${value}`);
+    }
+
+    if (/^https?:\/\//i.test(value)) {
+      return sanitizeUrl(value);
+    }
+  }
+
+  return null;
+}
+
+function buildFallbackBaseUrl(): string {
+  const defaultPort =
+    (import.meta.env.VITE_BACKEND_PORT &&
+      String(import.meta.env.VITE_BACKEND_PORT)) ||
+    "8000";
+
+  if (typeof window === "undefined") {
+    return `http://127.0.0.1:${defaultPort}`;
+  }
+
+  const { origin, protocol, hostname } = window.location;
+  if (origin) return origin;
+
+  return `${protocol}//${hostname}:${defaultPort}`;
+}
+
+const rawBaseUrl = pickEnvBaseUrl() || buildFallbackBaseUrl();
+const API_BASE_URL = sanitizeUrl(rawBaseUrl);
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,

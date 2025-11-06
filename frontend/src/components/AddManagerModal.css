@@ -1,3 +1,5 @@
+/* Updated: Uses global.css variables and animations */
+
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -10,16 +12,7 @@
   justify-content: center;
   z-index: 1000;
   padding: 20px;
-  animation: fadeIn 0.2s ease-out;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  animation: fadeIn 0.2s ease-out; /* Uses global.css animation */
 }
 
 .modal-content {
@@ -32,18 +25,7 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  animation: slideUp 0.3s ease-out;
-}
-
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  animation: slideUp 0.3s ease-out; /* Uses global.css animation */
 }
 
 .modal-header {
@@ -142,16 +124,7 @@
   border: 2px solid rgba(255, 255, 255, 0.3);
   border-top-color: white;
   border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  from {
-    transform: rotate(0);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+  animation: spin 0.8s linear infinite; /* Uses global.css animation */
 }
 
 @media (max-width: 768px) {

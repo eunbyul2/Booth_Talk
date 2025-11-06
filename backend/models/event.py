@@ -49,6 +49,10 @@ class Event(Base):
     ocr_data = Column(JSON)
     categories = Column(JSON, default=list)
 
+    # Unsplash 자동 이미지 생성 관련 필드
+    unsplash_image_url = Column(String)  # Unsplash에서 자동 생성된 이미지 URL
+    has_custom_image = Column(Boolean, default=False)  # 주최측이 직접 업로드한 이미지 여부
+
     is_active = Column(Boolean, default=True, index=True)
     is_featured = Column(Boolean, default=False, index=True)
     view_count = Column(Integer, default=0)

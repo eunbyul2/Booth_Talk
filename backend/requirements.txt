@@ -33,6 +33,7 @@ apscheduler==3.10.4
 
 # 파일 업로드
 aiofiles==23.2.1
+aiohttp==3.9.5
 
 # CORS는 FastAPI에 내장되어 있음
 # from fastapi.middleware.cors import CORSMiddleware 사용

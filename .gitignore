@@ -40,3 +40,5 @@ Thumbs.db
 
 # 업로드된 파일
 backend/uploads/
+
+database/*.csv
