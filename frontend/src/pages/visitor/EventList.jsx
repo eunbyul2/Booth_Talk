@@ -2,9 +2,9 @@ import { useMemo, useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Search, Calendar, MapPin, Clock, ChevronRight } from "lucide-react";
 import "./EventList.css";
-import { getVisitorEvents } from "../../apiClient";
+import { getVisitorEvents, getVisitorEventDetail } from "../../apiClient";
 
-const FALLBACK_POSTER = "https://placehold.co/120x120?text=Event";
+const FALLBACK_POSTER = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Crect width='120' height='120' fill='%231E3A8A'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='14' fill='white'%3EEvent%3C/text%3E%3C/svg%3E";
 
 export default function EventList() {
   const navigate = useNavigate();
@@ -34,26 +34,31 @@ export default function EventList() {
 
     const timer = setTimeout(async () => {
       try {
-        const params = {
-          only_available: false,
-          limit: 100,
-        };
+        if (exhibitionId && !searchTerm) {
+          const eventDetail = await getVisitorEventDetail(exhibitionId);
+          if (!active) return;
+          const detailArray = eventDetail ? [eventDetail] : [];
+          setEvents(detailArray);
+          setTotalCount(detailArray.length);
+          setFilterInfo(null);
+        } else {
+          const params = {
+            only_available: false,
+            limit: 100,
+          };
 
-        if (searchTerm) {
-          params.keyword = searchTerm;
+          if (searchTerm) {
+            params.keyword = searchTerm;
+          }
+
+          const data = await getVisitorEvents(params);
+          if (!active) return;
+
+          const fetchedEvents = Array.isArray(data?.events) ? data.events : [];
+          setEvents(fetchedEvents);
+          setTotalCount(data?.total ?? fetchedEvents.length);
+          setFilterInfo(data?.filter_info ?? null);
         }
-
-        if (exhibitionId) {
-          params.event_type = exhibitionId;
-        }
-
-        const data = await getVisitorEvents(params);
-        if (!active) return;
-
-        const fetchedEvents = Array.isArray(data?.events) ? data.events : [];
-        setEvents(fetchedEvents);
-        setTotalCount(data?.total ?? fetchedEvents.length);
-        setFilterInfo(data?.filter_info ?? null);
       } catch (err) {
         if (!active) return;
         console.error(err);
@@ -229,6 +234,10 @@ export default function EventList() {
                   <img
                     src={event.image_url || FALLBACK_POSTER}
                     alt={event.company_name}
+                    onError={(e) => {
+                      e.target.onerror = null; // Prevent infinite loop
+                      e.target.src = FALLBACK_POSTER;
+                    }}
                   />
                 </div>
 

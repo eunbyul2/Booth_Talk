@@ -10,7 +10,6 @@ const FALLBACK_IMAGE = "https://placehold.co/400x200?text=Exhibition";
 export default function VisitorHome() {
   const navigate = useNavigate();
   const mapRef = useRef(null);
-  const [userPos, setUserPos] = useState(null);
   const [hoveredExhibitionId, setHoveredExhibitionId] = useState(null);
   const exhibitionMarkersRef = useRef([]);
 
@@ -22,6 +21,13 @@ export default function VisitorHome() {
   const [infoWindow, setInfoWindow] = useState(null);
   const [sortOrder, setSortOrder] = useState("date_asc");
   const [searchQuery, setSearchQuery] = useState("");
+  const [locationNotice, setLocationNotice] = useState(null);
+  const [heroGlow, setHeroGlow] = useState({
+    x: 50,
+    y: 50,
+    tiltX: "0deg",
+    tiltY: "0deg",
+  });
 
   const transformEventsToExhibitions = (fetchedEvents) => {
     return fetchedEvents.map((event) => {
@@ -96,15 +102,58 @@ export default function VisitorHome() {
       try {
         const google = await loadGoogleMaps();
         const defaultCenter = { lat: 37.5665, lng: 126.978 };
-        const pos = await new Promise((resolve) => {
-          if (!navigator.geolocation) return resolve(defaultCenter);
-          navigator.geolocation.getCurrentPosition(
-            (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
-            () => resolve(defaultCenter),
-            { enableHighAccuracy: true, timeout: 5000 }
+        let pos = defaultCenter;
+
+        const hasGeolocation =
+          typeof navigator !== "undefined" && !!navigator.geolocation;
+        const isSecure =
+          typeof window !== "undefined"
+            ? window.isSecureContext ||
+              window.location.protocol === "https:"
+            : true;
+
+        if (!hasGeolocation) {
+          setLocationNotice(
+            "이 브라우저는 위치 서비스를 지원하지 않아 기본 서울 좌표를 사용합니다."
           );
-        });
-        setUserPos(pos);
+        } else if (!isSecure) {
+          setLocationNotice(
+            "보안 연결이 아니어서 위치 권한을 요청할 수 없습니다. 기본 좌표로 지도를 표시합니다."
+          );
+        }
+
+        if (hasGeolocation && isSecure) {
+          try {
+            const permission = navigator.permissions
+              ? await navigator.permissions.query({
+                  name: "geolocation",
+                })
+              : null;
+
+            if (permission?.state === "denied") {
+              setLocationNotice(
+                "위치 권한이 거부되어 기본 좌표로 지도를 표시합니다."
+              );
+            } else {
+              pos = await new Promise((resolve) => {
+                navigator.geolocation.getCurrentPosition(
+                  (p) =>
+                    resolve({
+                      lat: p.coords.latitude,
+                      lng: p.coords.longitude,
+                    }),
+                  () => resolve(defaultCenter),
+                  { enableHighAccuracy: true, timeout: 5000 }
+                );
+              });
+            }
+          } catch {
+            setLocationNotice(
+              "위치 정보를 가져오지 못해 기본 좌표를 사용합니다."
+            );
+            pos = defaultCenter;
+          }
+        }
 
         const map = new google.maps.Map(mapRef.current, {
           center: pos,
@@ -132,6 +181,9 @@ export default function VisitorHome() {
         });
       } catch (e) {
         console.error(e);
+        setLocationNotice(
+          "지도 서비스를 불러오지 못했습니다. 전시 정보는 정상적으로 확인할 수 있습니다."
+        );
       }
     }
     init();
@@ -336,13 +388,28 @@ export default function VisitorHome() {
   return (
     <div className="visitor-home">
       {/* Hero Section */}
-      <div className="hero-section">
+      <div
+        className="hero-section"
+        onMouseMove={(e) => {
+          const rect = e.currentTarget.getBoundingClientRect();
+          const x = ((e.clientX - rect.left) / rect.width) * 100;
+          const y = ((e.clientY - rect.top) / rect.height) * 100;
+          const tiltX = ((y - 50) / 60).toFixed(3);
+          const tiltY = ((x - 50) / -60).toFixed(3);
+          setHeroGlow({ x, y, tiltX: `${tiltX}deg`, tiltY: `${tiltY}deg` });
+        }}
+        onMouseLeave={() =>
+          setHeroGlow({ x: 50, y: 50, tiltX: "0deg", tiltY: "0deg" })
+        }
+        style={{
+          "--pointer-x": `${heroGlow.x}%`,
+          "--pointer-y": `${heroGlow.y}%`,
+          "--tilt-x": heroGlow.tiltX || "0deg",
+          "--tilt-y": heroGlow.tiltY || "0deg",
+        }}
+      >
         <div className="hero-content">
-          <h1 className="hero-title">
-            전시회 이벤트를
-            <br />
-            한눈에 확인하세요
-          </h1>
+          <h1 className="hero-title">전시회 이벤트를 한눈에 확인하세요</h1>
           <p className="hero-subtitle">
             코엑스, 킨텍스, 벡스코의 모든 전시회 정보와 이벤트를 실시간으로
             제공합니다
@@ -370,23 +437,25 @@ export default function VisitorHome() {
           </div>
 
           <div className="hero-stats">
-            <div className="stat">
-              <div className="stat-number">
-                {loading ? "-" : totalExhibitions}
+            <div className="hero-stats-list">
+              <div className="hero-stats-item">
+                <span className="hero-stats-label">진행 중인 전시회</span>
+                <span className="hero-stats-value">
+                  {loading ? "-" : totalExhibitions}
+                </span>
               </div>
-              <div className="stat-label">진행 중인 전시회</div>
-            </div>
-            <div className="stat">
-              <div className="stat-number">
-                {loading ? "-" : uniqueCompanyCount}
+              <div className="hero-stats-item">
+                <span className="hero-stats-label">참가 기업</span>
+                <span className="hero-stats-value">
+                  {loading ? "-" : uniqueCompanyCount}
+                </span>
               </div>
-              <div className="stat-label">참가 기업</div>
-            </div>
-            <div className="stat">
-              <div className="stat-number">
-                {loading ? "-" : formatStatValue(totalViewCount)}
+              <div className="hero-stats-item">
+                <span className="hero-stats-label">방문자</span>
+                <span className="hero-stats-value">
+                  {loading ? "-" : formatStatValue(totalViewCount)}
+                </span>
               </div>
-              <div className="stat-label">방문자</div>
             </div>
           </div>
 
@@ -398,265 +467,119 @@ export default function VisitorHome() {
         </div>
       </div>
 
-      {/* Map Section */}
+      {/* Map + Upcoming Section */}
       <div className="venues-section">
         <div className="container">
-          <h2 className="section-title">내 주변 전시장 지도</h2>
-          <p className="section-subtitle">
-            브라우저 위치 권한을 허용하면 내 위치를 기준으로 표시됩니다
-          </p>
-          <div
-            style={{
-              height: 420,
-              borderRadius: 16,
-              overflow: "hidden",
-              boxShadow: "var(--shadow)",
-            }}
-          >
-            <div ref={mapRef} style={{ width: "100%", height: "100%" }} />
-          </div>
-        </div>
-      </div>
-
-      {/* Exhibition List */}
-      <div className="venues-section" style={{ paddingTop: "2rem" }}>
-        <div className="container">
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: "1rem",
-            }}
-          >
-            <div>
-              <h2 className="section-title" style={{ marginBottom: "0.5rem" }}>
-                진행 예정 전시회
+          <div className="map-list-layout">
+            <div className="map-card">
+              <h2 className="section-title section-title--tight">
+                내 주변 전시장 지도
               </h2>
-              <p className="section-subtitle" style={{ margin: 0 }}>
-                지도의 마커를 클릭하거나 전시회를 선택하여 참여 업체를
-                확인하세요
+              <p className="section-subtitle section-subtitle--muted">
+                브라우저 위치 권한을 허용하면 내 위치를 기준으로 표시됩니다
               </p>
+              <div className="map-frame">
+                <div ref={mapRef} className="map-frame-inner" />
+              </div>
+              {locationNotice && (
+                <p className="map-notice">{locationNotice}</p>
+              )}
             </div>
 
-            <div
-              style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
-            >
-              <label
-                style={{
-                  fontSize: "0.875rem",
-                  color: "#6b7280",
-                  fontWeight: "500",
-                }}
-              >
-                정렬:
-              </label>
-              <select
-                value={sortOrder}
-                onChange={(e) => setSortOrder(e.target.value)}
-                style={{
-                  padding: "0.5rem 2rem 0.5rem 0.75rem",
-                  fontSize: "0.875rem",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "8px",
-                  background: "white",
-                  cursor: "pointer",
-                }}
-              >
-                <option value="date_asc">시간 빠른 순</option>
-                <option value="date_desc">시간 느린 순</option>
-                <option value="location">장소별</option>
-              </select>
-            </div>
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: "1rem",
-              marginTop: "1.5rem",
-            }}
-          >
-            {loading && (
-              <div
-                style={{
-                  padding: "2rem",
-                  textAlign: "center",
-                  color: "#6b7280",
-                }}
-              >
-                이벤트 정보를 불러오는 중입니다...
-              </div>
-            )}
-
-            {!loading && sortedExhibitions.length === 0 && (
-              <div
-                style={{
-                  padding: "2rem",
-                  textAlign: "center",
-                  color: "#6b7280",
-                  border: "1px dashed #d1d5db",
-                  borderRadius: "12px",
-                  background: "#f9fafb",
-                }}
-              >
-                표시할 전시회가 없습니다. 다른 시간이나 필터로 다시 시도해
-                주세요.
-              </div>
-            )}
-
-            {sortedExhibitions.map((exhibition) => (
-              <div
-                key={exhibition.id}
-                style={{
-                  display: "flex",
-                  background: "white",
-                  borderRadius: "12px",
-                  overflow: "hidden",
-                  boxShadow:
-                    hoveredExhibitionId === exhibition.id
-                      ? "0 4px 16px rgba(255, 107, 107, 0.3)"
-                      : "0 2px 8px rgba(0,0,0,0.1)",
-                  cursor: "pointer",
-                  transition: "all 0.3s ease",
-                  border:
-                    hoveredExhibitionId === exhibition.id
-                      ? "2px solid #FF6B6B"
-                      : "2px solid #e5e7eb",
-                  height: "140px",
-                }}
-                onClick={() =>
-                  navigate(`/visitor/events?exhibition_id=${exhibition.id}`)
-                }
-                onMouseEnter={() => setHoveredExhibitionId(exhibition.id)}
-                onMouseLeave={() => setHoveredExhibitionId(null)}
-              >
-                <div
-                  style={{
-                    width: "180px",
-                    minWidth: "180px",
-                    overflow: "hidden",
-                  }}
-                >
-                  <img
-                    src={exhibition.image}
-                    alt={exhibition.name}
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                    }}
-                  />
+            <div className="list-card">
+              <div className="list-header">
+                <div>
+                  <h2 className="section-title section-title--tight">
+                    진행 예정 전시회
+                  </h2>
+                  <p className="section-subtitle section-subtitle--muted">
+                    지도의 마커를 클릭하거나 전시회를 선택하여 참여 업체를
+                    확인하세요
+                  </p>
                 </div>
-
-                <div
-                  style={{
-                    flex: 1,
-                    padding: "1.25rem",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "space-between",
-                  }}
-                >
-                  <div>
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "0.5rem",
-                        marginBottom: "0.5rem",
-                      }}
-                    >
-                      <span
-                        style={{
-                          fontSize: "0.75rem",
-                          padding: "0.25rem 0.5rem",
-                          background: "rgba(255, 107, 107, 0.2)",
-                          color: "#FF6B6B",
-                          borderRadius: "4px",
-                          fontWeight: "700",
-                        }}
-                      >
-                        {exhibition.code}
-                      </span>
-                      <h3
-                        style={{
-                          fontSize: "1.25rem",
-                          fontWeight: "700",
-                          margin: 0,
-                          color: "#1f2937",
-                        }}
-                      >
-                        {exhibition.name}
-                      </h3>
-                    </div>
-                    <p
-                      style={{
-                        fontSize: "0.875rem",
-                        color: "#6b7280",
-                        marginBottom: "0.75rem",
-                        lineHeight: "1.4",
-                      }}
-                    >
-                      {exhibition.description}
-                    </p>
-                  </div>
-
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: "1.5rem",
-                      fontSize: "0.875rem",
-                      color: "#4b5563",
-                      flexWrap: "wrap",
-                    }}
+                <div className="list-filter">
+                  <label htmlFor="home-sort">정렬:</label>
+                  <select
+                    id="home-sort"
+                    className="list-select"
+                    value={sortOrder}
+                    onChange={(e) => setSortOrder(e.target.value)}
                   >
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "0.4rem",
-                      }}
-                    >
-                      <MapPin
-                        size={16}
-                        style={{ color: "#FF6B6B", flexShrink: 0 }}
-                      />
-                      <span>
-                        {exhibition.venueName} {exhibition.hallInfo}
-                      </span>
-                    </div>
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "0.4rem",
-                      }}
-                    >
-                      <Calendar
-                        size={16}
-                        style={{ color: "#f59e0b", flexShrink: 0 }}
-                      />
-                      <span>
-                        {formatDate(exhibition.startDate)} ~{" "}
-                        {formatDate(exhibition.endDate)}
-                      </span>
-                    </div>
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "0.4rem",
-                      }}
-                    >
-                      <span style={{ fontSize: "16px" }}>🏢</span>
-                      <span>참여 업체 {exhibition.eventCount}개</span>
-                    </div>
-                  </div>
+                    <option value="date_asc">시간 빠른 순</option>
+                    <option value="date_desc">시간 느린 순</option>
+                    <option value="location">장소별</option>
+                  </select>
                 </div>
               </div>
-            ))}
+
+              <div className="home-exhibition-list">
+                {loading && (
+                  <div className="home-message home-message--loading">
+                    이벤트 정보를 불러오는 중입니다...
+                  </div>
+                )}
+
+                {!loading && sortedExhibitions.length === 0 && (
+                  <div className="home-message">
+                    표시할 전시회가 없습니다. 다른 시간이나 필터로 다시 시도해
+                    주세요.
+                  </div>
+                )}
+
+                {!loading &&
+                  sortedExhibitions.map((exhibition) => (
+                    <div
+                      key={exhibition.id}
+                      className={`home-exhibition-card${
+                        hoveredExhibitionId === exhibition.id ? " is-hovered" : ""
+                      }`}
+                      onClick={() =>
+                        navigate(`/visitor/events?exhibition_id=${exhibition.id}`)
+                      }
+                      onMouseEnter={() => setHoveredExhibitionId(exhibition.id)}
+                      onMouseLeave={() => setHoveredExhibitionId(null)}
+                    >
+                      <div className="home-exhibition-thumb">
+                        <img src={exhibition.image} alt={exhibition.name} />
+                      </div>
+                      <div className="home-exhibition-body">
+                        <div>
+                          <div className="home-exhibition-title">
+                            <span className="home-exhibition-badge">
+                              {exhibition.code}
+                            </span>
+                            <h3>{exhibition.name}</h3>
+                          </div>
+                          <p className="home-exhibition-desc">
+                            {exhibition.description || "등록된 설명이 없습니다."}
+                          </p>
+                        </div>
+                        <div className="home-exhibition-meta">
+                          <div className="home-exhibition-metaItem home-exhibition-metaItem--location">
+                            <MapPin size={16} />
+                            <span>
+                              {exhibition.venueName} {exhibition.hallInfo}
+                            </span>
+                          </div>
+                          <div className="home-exhibition-metaItem home-exhibition-metaItem--date">
+                            <Calendar size={16} />
+                            <span>
+                              {formatDate(exhibition.startDate)} ~{" "}
+                              {formatDate(exhibition.endDate)}
+                            </span>
+                          </div>
+                          <div className="home-exhibition-metaItem">
+                            <span role="img" aria-label="building">
+                              🏢
+                            </span>
+                            <span>참여 업체 {exhibition.eventCount}개</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
           </div>
         </div>
       </div>
