@@ -1,12 +1,63 @@
+/* Updated: Uses global.css variables + ChronoMorph Design System */
+
+@keyframes header-glimmer {
+  0% {
+    transform: translateX(-40%);
+    opacity: 0.25;
+  }
+  100% {
+    transform: translateX(120%);
+    opacity: 0.45;
+  }
+}
+
+@keyframes card-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(24px) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 .event-list-page {
   min-height: 100vh;
-  background: #f9fafb;
+  background: var(--chrono-bg);
+  background-attachment: fixed;
+  color: rgba(238, 240, 255, 0.92);
 }
 
 .event-list-header {
-  background: white;
-  border-bottom: 1px solid #e5e7eb;
+  background: rgba(10, 8, 25, 0.7);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   padding: 20px 0;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.event-list-header::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 35%;
+  background: linear-gradient(
+    120deg,
+    transparent,
+    rgba(125, 90, 255, 0.35),
+    rgba(90, 220, 255, 0.3),
+    transparent
+  );
+  opacity: 0.4;
+  transform: translateX(-40%);
+  animation: header-glimmer 18s linear infinite;
+  mix-blend-mode: screen;
 }
 
 .event-list-header .container {
@@ -18,16 +69,18 @@
 .btn-back {
   background: transparent;
   border: none;
-  color: #2563eb;
+  color: rgba(125, 90, 255, 0.9);
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   margin-bottom: 16px;
   padding: 8px 0;
   cursor: pointer;
+  transition: all 0.2s ease;
 }
 
 .btn-back:hover {
-  text-decoration: underline;
+  color: rgba(125, 90, 255, 1);
+  text-shadow: 0 0 12px rgba(125, 90, 255, 0.6);
 }
 
 .search-filter {
@@ -40,10 +93,18 @@
   align-items: center;
   gap: 12px;
   padding: 12px 16px;
-  background: #f3f4f6;
-  border: 1px solid #e5e7eb;
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 12px;
   flex: 1;
+  transition: all 0.3s ease;
+}
+
+.search-box:focus-within {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(125, 90, 255, 0.5);
+  box-shadow: 0 0 0 2px rgba(125, 90, 255, 0.2);
 }
 
 .search-box input {
@@ -52,6 +113,11 @@
   background: transparent;
   outline: none;
   font-size: 14px;
+  color: rgba(238, 240, 255, 0.95);
+}
+
+.search-box input::placeholder {
+  color: rgba(200, 210, 255, 0.5);
 }
 
 .event-list-container {
@@ -63,19 +129,59 @@
 /* 현재 날짜/시간 */
 .current-datetime {
   font-size: 14px;
-  color: #6b7280;
+  color: rgba(200, 210, 255, 0.6);
   margin-bottom: 16px;
   font-weight: 500;
 }
 
-/* 행사 정보 카드 */
+/* 행사 정보 카드 - ChronoMorph Glass Style */
 .exhibition-card {
-  background: linear-gradient(135deg, #ff6b6b 0%, #ff8e53 100%);
-  color: white;
-  padding: 24px;
-  border-radius: 16px;
+  --accent-h: 28;
+  --accent-l: 62%;
+  position: relative;
+  background: var(--chrono-glass);
+  backdrop-filter: blur(24px);
+  border: 1px solid var(--chrono-outline);
+  color: rgba(238, 240, 255, 0.98);
+  padding: clamp(1.5rem, 4vw, 2rem);
+  border-radius: clamp(18px, 3vw, 28px);
   margin-bottom: 24px;
-  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.2);
+  box-shadow: 0 10px 40px rgba(255, 107, 107, 0.2);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* Orange glow effect for exhibition card */
+.exhibition-card::before {
+  content: "";
+  position: absolute;
+  inset: 12%;
+  border-radius: clamp(12px, 2vw, 20px);
+  background: conic-gradient(
+    from 120deg,
+    hsla(28 92% 75% / 0.5),
+    hsla(45 90% 65% / 0.4),
+    hsla(60 85% 70% / 0.3),
+    transparent 280deg
+  );
+  mix-blend-mode: screen;
+  opacity: 0.4;
+  filter: blur(16px);
+  pointer-events: none;
+}
+
+.exhibition-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(140deg, rgba(255, 255, 255, 0.12), transparent 55%);
+  mix-blend-mode: overlay;
+  opacity: 0.55;
+  transition: opacity 0.5s ease;
+}
+
+.exhibition-card:hover::after {
+  opacity: 0.8;
 }
 
 .exhibition-badge {
@@ -91,16 +197,21 @@
 }
 
 .exhibition-title {
-  font-size: 22px;
+  font-size: clamp(1.25rem, 3vw, 1.5rem);
   font-weight: 700;
   margin-bottom: 16px;
   line-height: 1.3;
+  position: relative;
+  z-index: 1;
+  color: rgba(238, 240, 255, 1);
 }
 
 .exhibition-info {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  position: relative;
+  z-index: 1;
 }
 
 .info-item {
@@ -108,7 +219,7 @@
   align-items: center;
   gap: 8px;
   font-size: 14px;
-  opacity: 0.95;
+  color: rgba(216, 220, 255, 0.85);
 }
 
 /* 이벤트 섹션 */
@@ -119,14 +230,14 @@
 .section-title {
   font-size: 18px;
   font-weight: 700;
-  color: #1f2937;
+  color: rgba(238, 240, 255, 0.98);
   margin-bottom: 12px;
 }
 
 .results-info {
   margin-bottom: 16px;
   font-size: 13px;
-  color: #6b7280;
+  color: rgba(200, 210, 255, 0.6);
 }
 
 /* 이벤트 리스트 */
@@ -136,22 +247,61 @@
   gap: 12px;
 }
 
-/* 이벤트 아이템 */
+/* 이벤트 아이템 - ChronoMorph Glass Card */
 .event-item {
+  --glow: 0.15;
+  position: relative;
   display: flex;
-  background: white;
-  border-radius: 12px;
+  background: var(--chrono-glass-light);
+  backdrop-filter: blur(16px);
+  border-radius: clamp(14px, 2.5vw, 20px);
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
   cursor: pointer;
-  transition: all 0.3s ease;
-  border: 2px solid transparent;
+  transition: all 0.4s cubic-bezier(0.35, 0, 0.25, 1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  isolation: isolate;
+  transform-style: preserve-3d;
+}
+
+/* Subtle glow for event cards */
+.event-item::before {
+  content: "";
+  position: absolute;
+  inset: 15%;
+  border-radius: clamp(10px, 2vw, 16px);
+  background: radial-gradient(
+    circle at 50% 30%,
+    hsla(260 92% 75% / 0.3),
+    transparent 70%
+  );
+  mix-blend-mode: screen;
+  opacity: calc(0.1 + 0.35 * var(--glow));
+  filter: blur(12px);
+  pointer-events: none;
+  transition: opacity 0.4s, filter 0.4s;
+}
+
+.event-item::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, rgba(255, 255, 255, 0.12), transparent 60%);
+  mix-blend-mode: overlay;
+  opacity: 0.4;
+  transition: opacity 0.4s ease;
+  pointer-events: none;
 }
 
 .event-item:hover {
-  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.15);
-  border-color: #2563eb;
-  transform: translateY(-2px);
+  --glow: 1;
+  box-shadow: 0 8px 28px rgba(125, 90, 255, 0.25);
+  border-color: rgba(125, 90, 255, 0.4);
+  transform: translateY(-6px) rotateX(3deg);
+}
+
+.event-item:hover::after {
+  opacity: 0.75;
 }
 
 .event-item-image {
@@ -159,10 +309,12 @@
   min-width: 120px;
   height: 120px;
   overflow: hidden;
-  background: #f3f4f6;
+  background: rgba(255, 255, 255, 0.03);
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
+  z-index: 1;
 }
 
 .event-item-image img {
@@ -177,6 +329,8 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  position: relative;
+  z-index: 1;
 }
 
 .event-item-header {
@@ -187,8 +341,8 @@
 }
 
 .booth-badge {
-  background: #f3f4f6;
-  color: #6b7280;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(200, 210, 255, 0.7);
   padding: 4px 8px;
   border-radius: 4px;
   font-size: 11px;
@@ -199,7 +353,7 @@
 .event-item-name {
   font-size: 15px;
   font-weight: 600;
-  color: #1f2937;
+  color: rgba(238, 240, 255, 0.95);
   margin: 0;
   line-height: 1.4;
 }
@@ -212,17 +366,18 @@
 }
 
 .time-slots svg {
-  color: #6b7280;
+  color: rgba(200, 210, 255, 0.6);
   flex-shrink: 0;
 }
 
 .time-slot {
-  background: #dbeafe;
-  color: #1e40af;
+  background: rgba(125, 90, 255, 0.2);
+  color: rgba(238, 240, 255, 0.95);
   padding: 3px 8px;
   border-radius: 4px;
   font-size: 12px;
   font-weight: 600;
+  border: 1px solid rgba(125, 90, 255, 0.3);
 }
 
 .loading-box,
@@ -236,23 +391,23 @@
 }
 
 .loading-box {
-  background: #eff6ff;
-  color: #1d4ed8;
+  background: var(--primary-50);
+  color: var(--primary-700);
 }
 
 .error-box {
-  background: #fee2e2;
-  color: #b91c1c;
+  background: var(--danger-bg);
+  color: var(--danger-700);
 }
 
 .empty-box {
-  background: #fefce8;
-  color: #92400e;
+  background: var(--warning-bg);
+  color: var(--warning-700);
 }
 
 .event-item-description {
   font-size: 13px;
-  color: #6b7280;
+  color: rgba(200, 210, 255, 0.7);
   margin: 0;
   line-height: 1.5;
   display: -webkit-box;
@@ -264,8 +419,9 @@
 
 .event-item-benefits {
   font-size: 12px;
-  color: #059669;
-  background: #d1fae5;
+  color: rgba(100, 220, 150, 1);
+  background: rgba(100, 220, 150, 0.15);
+  border: 1px solid rgba(100, 220, 150, 0.3);
   padding: 4px 8px;
   border-radius: 4px;
   display: inline-block;
@@ -277,7 +433,18 @@
   display: flex;
   align-items: center;
   padding: 16px;
-  color: #9ca3af;
+  color: rgba(200, 210, 255, 0.4);
+  position: relative;
+  z-index: 1;
+}
+
+@supports (animation-timeline: view()) {
+  .exhibition-card,
+  .event-item {
+    animation: card-rise 0.9s ease both;
+    animation-timeline: view();
+    animation-range: entry 10% exit 70%;
+  }
 }
 
 @media (max-width: 768px) {
@@ -305,5 +472,13 @@
 
   .event-item-arrow {
     display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .event-list-header::before,
+  .exhibition-card,
+  .event-item {
+    animation: none !important;
   }
 }

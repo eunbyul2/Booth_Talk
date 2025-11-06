@@ -1,3 +1,5 @@
+/* Updated: Uses global.css variables and animations */
+
 .create-company-page {
   min-height: 100vh;
   background: var(--gray-50);
@@ -28,8 +30,8 @@
 }
 
 .btn-back:hover {
-  border-color: var(--primary-500);
-  color: var(--primary-500);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
 }
 
 .header-content {
@@ -47,7 +49,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--primary-500);
+  color: var(--primary-color);
 }
 
 .header-content h1 {
@@ -94,7 +96,7 @@
 }
 
 .input:focus {
-  border-color: var(--primary-400);
+  border-color: var(--primary-color);
   box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
   outline: none;
 }
@@ -119,7 +121,7 @@
 }
 
 .btn-primary {
-  background: linear-gradient(90deg, var(--primary-500), var(--primary-400));
+  background: var(--primary-color);
   color: #fff;
   box-shadow: 0 12px 30px -12px rgba(99, 102, 241, 0.5);
 }
@@ -137,8 +139,8 @@
 }
 
 .btn-outline:hover {
-  border-color: var(--primary-500);
-  color: var(--primary-500);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
   background: rgba(99, 102, 241, 0.08);
 }
 
@@ -148,13 +150,7 @@
   border: 2px solid rgba(255, 255, 255, 0.4);
   border-top-color: #fff;
   border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+  animation: spin 0.8s linear infinite; /* Uses global.css animation */
 }
 
 .result-section {
@@ -170,7 +166,7 @@
   gap: 12px;
   background: rgba(34, 197, 94, 0.12);
   border: 1px solid rgba(34, 197, 94, 0.2);
-  color: #15803d;
+  color: var(--success-600);
   padding: 14px 18px;
   border-radius: 12px;
   font-weight: 600;
@@ -202,7 +198,7 @@
 
 .badge-success {
   background: rgba(34, 197, 94, 0.15);
-  color: #15803d;
+  color: var(--success-600);
 }
 
 .info-grid {
@@ -248,7 +244,7 @@
 
 .btn-copy:hover {
   background: rgba(99, 102, 241, 0.08);
-  color: var(--primary-500);
+  color: var(--primary-color);
 }
 
 .divider {
@@ -276,7 +272,7 @@
 
 .expiry-badge {
   background: rgba(99, 102, 241, 0.12);
-  color: var(--primary-500);
+  color: var(--primary-color);
   padding: 6px 12px;
   border-radius: 999px;
   font-size: 12px;

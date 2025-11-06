@@ -1,6 +1,8 @@
+/* Updated: Uses global.css variables */
+
 .survey-create-page {
   min-height: 100vh;
-  background: #f5f5f5;
+  background: var(--bg-gray);
 }
 
 .survey-container {
@@ -136,12 +138,12 @@
   background: transparent;
   border: none;
   border-radius: 6px;
-  color: var(--danger-color);
+  color: var(--danger);
   transition: all 0.2s;
 }
 
 .btn-icon-danger:hover {
-  background: #fee2e2;
+  background: var(--danger-bg);
 }
 
 .form-group {
