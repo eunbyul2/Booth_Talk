@@ -10,13 +10,22 @@ export default function EventList() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const exhibitionId = searchParams.get("exhibition_id");
+  const urlSearchQuery = searchParams.get("search"); // URL에서 검색어 추출
 
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState(urlSearchQuery || ""); // URL 검색어로 초기화
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [totalCount, setTotalCount] = useState(0);
   const [filterInfo, setFilterInfo] = useState(null);
+
+  // URL 파라미터 변경 시 검색어 업데이트
+  useEffect(() => {
+    const newSearchQuery = searchParams.get("search");
+    if (newSearchQuery !== searchTerm) {
+      setSearchTerm(newSearchQuery || "");
+    }
+  }, [searchParams, searchTerm]);
 
   useEffect(() => {
     let active = true;
