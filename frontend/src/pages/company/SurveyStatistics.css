@@ -1,6 +1,8 @@
+/* Updated: Uses global.css variables */
+
 .statistics-page {
   min-height: 100vh;
-  background: #f5f5f5;
+  background: var(--bg-gray);
 }
 
 .statistics-container {
@@ -193,7 +195,7 @@
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #4f46e5 0%, #7c3aed 100%);
+  background: linear-gradient(90deg, var(--primary-color) 0%, var(--primary-600) 100%);
   border-radius: 12px;
   transition: width 0.3s ease;
 }
@@ -203,7 +205,7 @@
   align-items: center;
   gap: 12px;
   padding: 16px;
-  background: #eef2ff;
+  background: var(--primary-50);
   border-left: 4px solid var(--primary-color);
   border-radius: 8px;
   font-size: 14px;
@@ -214,7 +216,7 @@
   font-size: 24px;
 }
 
-@media (max-width: 968px) {
+@media (max-width: 768px) {
   .chart-row {
     grid-template-columns: 1fr;
   }

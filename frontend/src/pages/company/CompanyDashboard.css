@@ -1,6 +1,8 @@
+/* Updated: Uses global.css variables */
+
 .dashboard-page {
   min-height: 100vh;
-  background: #f5f5f5;
+  background: var(--bg-gray);
 }
 
 .dashboard-container {
@@ -46,7 +48,7 @@
 }
 
 .stat-card:hover {
-  transform: translateY(-4px);
+  transform: translateY(var(--lift-md));
   box-shadow: var(--shadow-lg);
 }
 
@@ -114,7 +116,7 @@
   background: var(--primary-color);
   color: white;
   border-color: var(--primary-color);
-  transform: translateY(-4px);
+  transform: translateY(var(--lift-md));
 }
 
 .action-card svg {
@@ -135,8 +137,8 @@
 }
 
 .dashboard-error {
-  background: #fee2e2;
-  color: #b91c1c;
+  background: var(--danger-bg);
+  color: var(--danger-600);
   padding: 16px;
   border-radius: 12px;
   margin-bottom: 24px;

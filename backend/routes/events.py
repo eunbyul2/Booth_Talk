@@ -1,6 +1,7 @@
 # routes/events.py
 """Event management routes with LLM helpers."""
 
+import logging
 import os
 import uuid
 from datetime import date, datetime
@@ -16,6 +17,7 @@ from database import get_db
 from models.event import Event
 from models.tag import Tag, event_tags
 from services.llm_service import llm_service
+from services.unsplash_service import get_unsplash_service
 
 
 router = APIRouter(tags=["이벤트"])
@@ -404,21 +406,48 @@ async def create_event(request: EventCreateRequest, db: Session = Depends(get_db
 
     # 임시 이미지를 영구 저장소로 이동
     final_image_url = None
+    has_custom_image = False
+    unsplash_image_url = None
+
     if request.temp_image_path and os.path.exists(request.temp_image_path):
         import shutil
-        
+
         # 영구 저장소 디렉토리 생성
         permanent_dir = "uploads/events"
         os.makedirs(permanent_dir, exist_ok=True)
-        
+
         # 새로운 파일명 생성 (이벤트 ID 기반)
         file_ext = os.path.splitext(request.original_filename or "")[1] or ".jpg"
         permanent_filename = f"event_{uuid.uuid4().hex}{file_ext}"
         permanent_path = f"{permanent_dir}/{permanent_filename}"
-        
+
         # 파일 이동
         shutil.move(request.temp_image_path, permanent_path)
         final_image_url = f"/uploads/events/{permanent_filename}"
+        has_custom_image = True
+    else:
+        # 주최측이 이미지 업로드하지 않음 -> Unsplash에서 자동 생성
+        import logging
+        logger = logging.getLogger(__name__)
+
+        try:
+            unsplash_service = get_unsplash_service()
+            image_data = await unsplash_service.get_event_image(
+                event_name=request.form_data.eventName,
+                description=request.form_data.description,
+                tags=request.tags,
+                orientation="landscape"
+            )
+
+            if image_data:
+                unsplash_image_url = image_data["url_regular"]  # 1080px width
+                logger.info(f"Unsplash 이미지 생성 성공: {unsplash_image_url}")
+            else:
+                logger.warning(f"Unsplash 이미지 생성 실패: {request.form_data.eventName}")
+
+        except Exception as e:
+            logger.error(f"Unsplash 이미지 생성 중 오류: {e}")
+            # 실패 시 무시하고 계속 진행 (이미지 없이 이벤트 생성)
 
     event = Event(
         event_name=request.form_data.eventName,
@@ -434,6 +463,8 @@ async def create_event(request: EventCreateRequest, db: Session = Depends(get_db
         categories=request.categories or [],
         company_id=request.company_id,
         image_url=final_image_url,  # 최종 이미지 URL 저장
+        unsplash_image_url=unsplash_image_url,  # Unsplash 자동 생성 이미지
+        has_custom_image=has_custom_image,  # 주최측 업로드 여부
     )
 
     db.add(event)

@@ -1,6 +1,8 @@
 // Google Maps JS API loader
 // Usage: await loadGoogleMaps()
 // Fetches key from backend endpoint: /api/visitor/maps-api-key
+import { getApiBaseUrl } from "../apiClient";
+
 export function loadGoogleMaps() {
   return new Promise((resolve, reject) => {
     if (window.google && window.google.maps) {
@@ -16,10 +18,11 @@ export function loadGoogleMaps() {
       return;
     }
 
-    // Backend base URL: allow override via VITE_BACKEND_URL; default to current host:8000
-    const backendBase = (import.meta && import.meta.env && import.meta.env.VITE_BACKEND_URL)
-      ? import.meta.env.VITE_BACKEND_URL
-      : `${location.protocol}//${location.hostname}:8000`;
+    // Backend base URL: reuse API 클라이언트 설정 (혼합 콘텐츠 방지)
+    const envBackendUrl =
+      import.meta?.env?.VITE_BACKEND_URL &&
+      String(import.meta.env.VITE_BACKEND_URL).trim();
+    const backendBase = (envBackendUrl || getApiBaseUrl()).replace(/\/$/, "");
 
     // Fetch API key from backend with fallbacks
     const candidates = [
