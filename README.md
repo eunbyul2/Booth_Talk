@@ -85,7 +85,7 @@ uv run uvicorn main:app --reload
 uv venv -p python3.10
 
 # 2) 가상환경 활성화
-.venv\Scripts\activate
+source .venv/Scripts/activate
 
 # 3) 프로젝트 의존성 설치 (editable 모드)
 uv pip install -e .

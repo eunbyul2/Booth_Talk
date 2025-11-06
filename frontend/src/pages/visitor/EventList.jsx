@@ -12,20 +12,18 @@ export default function EventList() {
   const exhibitionId = searchParams.get("exhibition_id");
   const urlSearchQuery = searchParams.get("search"); // URL에서 검색어 추출
 
-  const [searchTerm, setSearchTerm] = useState(urlSearchQuery || ""); // URL 검색어로 초기화
+  const [searchTerm, setSearchTerm] = useState(""); // 사용자 입력용
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [totalCount, setTotalCount] = useState(0);
   const [filterInfo, setFilterInfo] = useState(null);
 
-  // URL 파라미터 변경 시 검색어 업데이트
+  // URL 파라미터가 변경될 때만 검색어 초기화
   useEffect(() => {
     const newSearchQuery = searchParams.get("search");
-    if (newSearchQuery !== searchTerm) {
-      setSearchTerm(newSearchQuery || "");
-    }
-  }, [searchParams, searchTerm]);
+    setSearchTerm(newSearchQuery || "");
+  }, [searchParams.get("search")]); // URL의 search 파라미터만 감시
 
   useEffect(() => {
     let active = true;
@@ -39,8 +37,10 @@ export default function EventList() {
           limit: 100,
         };
 
-        if (searchTerm) {
-          params.keyword = searchTerm;
+        // URL에서 직접 검색어 가져오기
+        const urlSearchQuery = searchParams.get("search");
+        if (urlSearchQuery) {
+          params.keyword = urlSearchQuery;
         }
 
         if (exhibitionId) {
@@ -73,7 +73,7 @@ export default function EventList() {
       active = false;
       clearTimeout(timer);
     };
-  }, [searchTerm, exhibitionId]);
+  }, [searchParams.get("search"), exhibitionId]); // URL 파라미터 기반으로 변경
 
   const exhibition = useMemo(() => {
     if (!events.length) return null;
@@ -160,6 +160,20 @@ export default function EventList() {
                 placeholder="기업명 또는 이벤트명 검색..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    // 엔터를 누르면 URL 파라미터로 검색어 업데이트
+                    const params = new URLSearchParams();
+                    if (exhibitionId) params.set("exhibition_id", exhibitionId);
+                    if (searchTerm.trim())
+                      params.set("search", searchTerm.trim());
+
+                    const newUrl = `/visitor/events${
+                      params.toString() ? `?${params.toString()}` : ""
+                    }`;
+                    navigate(newUrl);
+                  }
+                }}
               />
             </div>
           </div>
@@ -170,6 +184,23 @@ export default function EventList() {
       <div className="event-list-container container">
         {/* 현재 날짜/시간 */}
         <div className="current-datetime">{getCurrentDateTime()}</div>
+
+        {/* 검색 결과 상태 */}
+        {searchParams.get("search") && (
+          <div
+            style={{ marginBottom: "16px", fontSize: "14px", color: "#6b7280" }}
+          >
+            <strong style={{ color: "#374151" }}>
+              "{searchParams.get("search")}"
+            </strong>{" "}
+            검색 결과
+            <span
+              style={{ color: "#059669", fontWeight: "600", marginLeft: "8px" }}
+            >
+              ({events.length}건)
+            </span>
+          </div>
+        )}
 
         {/* 행사 정보 카드 */}
         {exhibition && (
