@@ -19,6 +19,9 @@ dependencies = [
     "qrcode>=7.4.2",
     "aiofiles>=23.2.1",
     "bcrypt>=4.0.0",
+    "openai==2.6.1",
+    "anthropic==0.72.0",
+    "requests==2.32.3"
 ]
 
 [build-system]
