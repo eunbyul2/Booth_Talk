@@ -431,7 +431,7 @@ export default function VisitorHome() {
           >
             <div>
               <h2 className="section-title" style={{ marginBottom: "0.5rem" }}>
-                진행 예정 전시회
+                진행 전시회
               </h2>
               <p className="section-subtitle" style={{ margin: 0 }}>
                 지도의 마커를 클릭하거나 전시회를 선택하여 참여 업체를
