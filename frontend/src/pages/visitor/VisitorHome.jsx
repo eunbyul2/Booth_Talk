@@ -21,6 +21,7 @@ export default function VisitorHome() {
   const [mapInstance, setMapInstance] = useState(null);
   const [infoWindow, setInfoWindow] = useState(null);
   const [sortOrder, setSortOrder] = useState("date_asc");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const transformEventsToExhibitions = (fetchedEvents) => {
     return fetchedEvents.map((event) => {
@@ -352,7 +353,19 @@ export default function VisitorHome() {
             <input
               type="text"
               placeholder="전시회 검색..."
-              onFocus={() => navigate("/visitor/events")}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  // Enter를 누르면 검색어로 이동하거나, 검색어가 없으면 전체 리스트로 이동
+                  const searchUrl = searchQuery
+                    ? `/visitor/events?search=${encodeURIComponent(
+                        searchQuery
+                      )}`
+                    : "/visitor/events";
+                  navigate(searchUrl);
+                }
+              }}
             />
           </div>
 
