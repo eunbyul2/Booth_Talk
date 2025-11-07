@@ -1,6 +1,7 @@
 # routes/events.py
 """Event management routes with LLM helpers."""
 
+import logging
 import os
 import uuid
 from datetime import date, datetime
