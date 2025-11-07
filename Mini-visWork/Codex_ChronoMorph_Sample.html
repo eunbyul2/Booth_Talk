@@ -1,0 +1,453 @@
+<!-- Created: 2025-11-06T23:05:07+09:00 | Author: Codex -->
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ChronoMorph Scroll Opera — CSS 실험 샘플</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: "Pretendard Variable", "Inter", "Spoqa Han Sans Neo", "Noto Sans KR", system-ui,
+          sans-serif;
+        font-size: clamp(16px, 1.1vw, 18px);
+        line-height: 1.6;
+        --page-bg: radial-gradient(circle at 20% -10%, rgba(75, 0, 130, 0.4), transparent 60%),
+          radial-gradient(circle at 80% 120%, rgba(0, 176, 255, 0.5), transparent 65%),
+          #040214;
+        --glass: rgba(20, 15, 45, 0.58);
+        --outline: rgba(255, 255, 255, 0.12);
+      }
+
+      @property --glow {
+        syntax: "<number>";
+        inherits: false;
+        initial-value: 0.2;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--page-bg);
+        color: rgba(238, 240, 255, 0.92);
+        display: grid;
+        place-items: stretch;
+        background-attachment: fixed;
+      }
+
+      a {
+        color: inherit;
+      }
+
+      .frame {
+        position: relative;
+        min-height: 100dvh;
+        overflow-x: hidden;
+      }
+
+      .meter {
+        position: fixed;
+        inset: 1.8rem auto auto 1.6rem;
+        width: 6px;
+        height: clamp(40vh, 28vw, 65vh);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.08);
+        box-shadow: inset 0 0 20px rgba(255, 255, 255, 0.06);
+        z-index: 20;
+        overflow: hidden;
+        pointer-events: none;
+      }
+
+      .meter::after {
+        content: "";
+        position: absolute;
+        inset: auto 0 0;
+        height: 100%;
+        background: linear-gradient(180deg, hsl(285 95% 67%) 0%, hsl(190 90% 60%) 100%);
+        transform-origin: bottom;
+        transform: scaleY(0.08);
+        transition: transform 0.8s cubic-bezier(0.35, 0, 0.25, 1);
+      }
+
+      header.intro {
+        max-width: 56rem;
+        margin: 0 auto;
+        padding: clamp(3rem, 12vh, 10rem) clamp(2rem, 8vw, 8rem) 3rem;
+        text-align: left;
+        backdrop-filter: blur(24px);
+        background: rgba(4, 2, 20, 0.45);
+        border: 1px solid var(--outline);
+        border-radius: 26px;
+        box-shadow: 0 20px 80px rgba(5, 4, 15, 0.55);
+        position: relative;
+      }
+
+      header.intro::after {
+        content: "";
+        position: absolute;
+        inset: 8%;
+        border-radius: 20px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        mix-blend-mode: screen;
+        pointer-events: none;
+      }
+
+      header.intro h1 {
+        font-size: clamp(2.6rem, 6vw, 4.2rem);
+        line-height: 1.1;
+        margin: 0 0 1.6rem;
+        letter-spacing: -0.01em;
+        font-variation-settings: "wght" 720, "slnt" -6;
+        text-transform: uppercase;
+        color: hsl(258 100% 85%);
+        text-shadow: 0 0 18px rgba(125, 90, 255, 0.4);
+      }
+
+      header.intro p {
+        margin: 0 0 1rem;
+        color: rgba(210, 220, 250, 0.82);
+        max-width: 46ch;
+      }
+
+      .opera {
+        position: relative;
+        perspective: 1600px;
+        perspective-origin: 50% 25%;
+        display: flex;
+        flex-direction: column;
+        gap: 8vh;
+        padding-bottom: 20vh;
+      }
+
+      .scene {
+        --glow: 0.2;
+        --accent-h: 260;
+        --accent-s: 92%;
+        --accent-l: 62%;
+        position: relative;
+        min-height: 120vh;
+        display: grid;
+        align-content: center;
+        justify-items: start;
+        gap: 1.6rem;
+        padding: clamp(3.5rem, 16vh, 12rem) clamp(2rem, 8vw, 12rem);
+        color: rgba(238, 239, 255, 0.94);
+        background: linear-gradient(130deg, rgba(14, 10, 38, 0.74), rgba(6, 6, 24, 0.55));
+        border-radius: clamp(22px, 4vw, 34px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        overflow: hidden;
+        transform-style: preserve-3d;
+        box-shadow: 0 26px 90px rgba(0, 0, 0, 0.6);
+        isolation: isolate;
+      }
+
+      .scene::before,
+      .scene::after {
+        content: "";
+        position: absolute;
+        inset: clamp(1.8rem, 6vh, 4.2rem);
+        border-radius: clamp(16px, 3vw, 26px);
+        pointer-events: none;
+        transition: transform 0.9s cubic-bezier(0.35, 0, 0.25, 1),
+          opacity 0.9s cubic-bezier(0.35, 0, 0.25, 1),
+          filter 0.9s cubic-bezier(0.35, 0, 0.25, 1);
+      }
+
+      .scene::before {
+        background: conic-gradient(
+            from 120deg,
+            hsla(var(--accent-h) var(--accent-s) 80% / 0.8),
+            hsla(calc(var(--accent-h) + 45) 90% 65% / 0.6),
+            hsla(calc(var(--accent-h) + 90) 85% 70% / 0.55),
+            transparent 300deg
+          )
+          center/cover no-repeat;
+        mix-blend-mode: screen;
+        opacity: calc(0.22 + 0.5 * var(--glow));
+        filter: blur(calc(12px + 18px * var(--glow)));
+        transform: translateZ(-120px) rotateX(calc(-10deg + 12deg * var(--glow)));
+      }
+
+      .scene::after {
+        inset: clamp(1.2rem, 4vh, 3rem);
+        background: radial-gradient(
+            circle at 30% 20%,
+            hsla(calc(var(--accent-h) + 20) 95% 75% / 0.35),
+            transparent 60%
+          ),
+          radial-gradient(
+            circle at 80% 80%,
+            hsla(calc(var(--accent-h) + 200) 92% 65% / 0.25),
+            transparent 70%
+          );
+        mix-blend-mode: lighten;
+        opacity: calc(0.12 + 0.38 * var(--glow));
+        filter: blur(calc(6px + 10px * var(--glow)));
+        transform: translateZ(-160px) scale(calc(1.05 + 0.08 * var(--glow)));
+      }
+
+      .scene .act {
+        font-size: 0.95rem;
+        letter-spacing: 0.4em;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.45);
+        margin: 0;
+      }
+
+      .scene h2 {
+        margin: 0;
+        font-size: clamp(2.2rem, 5.4vw, 3.8rem);
+        line-height: 1.05;
+        font-variation-settings: "wght" 680, "wdth" 92, "slnt" -7;
+        text-transform: uppercase;
+        letter-spacing: -0.02em;
+        color: hsl(var(--accent-h) var(--accent-s) calc(var(--accent-l) + 18%));
+        text-shadow: 0 0 18px hsla(var(--accent-h) var(--accent-s) 80% / 0.38);
+      }
+
+      .scene p {
+        margin: 0;
+        max-width: 46ch;
+        color: rgba(216, 220, 255, 0.78);
+        font-size: 1.05rem;
+      }
+
+      .spark {
+        margin-top: 1rem;
+        padding: 0.8rem 1.8rem;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.22);
+        background: linear-gradient(120deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0));
+        color: rgba(255, 255, 255, 0.9);
+        font-size: 0.95rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        backdrop-filter: blur(12px);
+        cursor: pointer;
+        transition: border 0.4s ease, transform 0.45s ease, box-shadow 0.45s ease;
+      }
+
+      .spark:focus-visible {
+        outline: 2px solid hsla(var(--accent-h) var(--accent-s) 85% / 0.9);
+        outline-offset: 6px;
+      }
+
+      .spark:hover {
+        border-color: hsla(var(--accent-h) var(--accent-s) 85% / 0.8);
+        transform: translateY(-2px);
+        box-shadow: 0 12px 45px hsla(var(--accent-h) var(--accent-s) 70% / 0.35);
+      }
+
+      .scene:has(.spark:hover),
+      .scene:has(.spark:focus-visible) {
+        --glow: 1;
+      }
+
+      .scene[data-scene="I"] {
+        --accent-h: 210;
+      }
+
+      .scene[data-scene="II"] {
+        --accent-h: 135;
+        --accent-l: 58%;
+      }
+
+      .scene[data-scene="III"] {
+        --accent-h: 290;
+        --accent-l: 64%;
+      }
+
+      .scene[data-scene="IV"] {
+        --accent-h: 28;
+        --accent-l: 62%;
+      }
+
+      .scene .stage-note {
+        font-size: 0.85rem;
+        letter-spacing: 0.32em;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.32);
+      }
+
+      .scene ul {
+        list-style: none;
+        padding: 0;
+        margin: 1rem 0 0;
+        display: grid;
+        gap: 0.8rem;
+        color: rgba(220, 224, 255, 0.7);
+      }
+
+      .scene li {
+        border-left: 2px solid hsla(var(--accent-h) var(--accent-s) 78% / 0.45);
+        padding-left: 0.9rem;
+        font-size: 0.96rem;
+      }
+
+      @supports (animation-timeline: scroll()) {
+        @scroll-timeline opera-timeline {
+          source: auto;
+          orientation: block;
+        }
+
+        .scene {
+          animation: scene-enter 1 both ease-out, glow-track 1 both linear;
+          animation-timeline: opera-timeline;
+          animation-range: entry 6% exit 70%;
+        }
+
+        .meter::after {
+          animation: meter-fill 1 both linear;
+          animation-timeline: opera-timeline;
+          animation-range: 0% 100%;
+        }
+
+        @keyframes scene-enter {
+          from {
+            opacity: 0;
+            transform: translateY(18vh) rotateX(16deg) scale(0.94);
+          }
+
+          to {
+            opacity: 1;
+            transform: translateY(0) rotateX(0) scale(1);
+          }
+        }
+
+        @keyframes glow-track {
+          from {
+            --glow: 0.25;
+          }
+
+          to {
+            --glow: 1.05;
+          }
+        }
+
+        @keyframes meter-fill {
+          from {
+            transform: scaleY(0.04);
+          }
+
+          to {
+            transform: scaleY(1);
+          }
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: auto;
+        }
+
+        .scene,
+        .meter::after {
+          animation: none !important;
+          transition: none !important;
+        }
+
+        .scene {
+          transform: none !important;
+        }
+      }
+
+      @media (max-width: 820px) {
+        header.intro {
+          border-radius: 20px;
+        }
+
+        .scene {
+          min-height: 100vh;
+          padding: clamp(3rem, 14vh, 8rem) clamp(1.5rem, 8vw, 3rem);
+        }
+
+        .scene::before,
+        .scene::after {
+          inset: clamp(0.8rem, 5vw, 2.6rem);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="frame">
+      <div class="meter" aria-hidden="true"></div>
+      <header class="intro">
+        <h1>ChronoMorph Scroll Opera</h1>
+        <p>
+          스크롤 속도를 지휘봉으로 사용하는 CSS 실험 무대. 각 막은 사용자의 시선에 맞춰 천천히 각도를
+          바꾸고, 빛이 쏟아지고, 색상 축이 전환되며 개막합니다.
+        </p>
+        <p>
+          최신 Chrome(115+)에서 <code>@scroll-timeline</code>을 지원하므로 모션은 자바스크립트 없이도
+          작동합니다. 마우스 또는 키보드로 스크롤하며 무대의 변화를 체험해 보세요.
+        </p>
+      </header>
+      <main class="opera">
+        <section class="scene" data-scene="I">
+          <p class="act">Act I · Dawn Resonance</p>
+          <h2>빛의 전주곡이 무대를 깨운다</h2>
+          <p>
+            첫 막이 열리면 무대 배경은 파란 파동으로 부풀어 오릅니다. 등장 인물의 실루엣은
+            <code>mix-blend-mode</code>와 <code>backdrop-filter</code>의 결을 타고 준수한 공명을 만들어 냅니다.
+          </p>
+          <p class="stage-note">SCENE NOTES</p>
+          <ul>
+            <li><code>conic-gradient</code>로 모아지는 전조등 하이라이트</li>
+            <li><code>transform-style: preserve-3d</code>로 구현한 입체 무대</li>
+            <li>스크롤 위치에 따라 조심스럽게 상승하는 <code>--glow</code> 커스텀 프로퍼티</li>
+          </ul>
+          <button class="spark" type="button">빛을 튕겨라</button>
+        </section>
+        <section class="scene" data-scene="II">
+          <p class="act">Act II · Verdant Alter</p>
+          <h2>푸른 늪에서 리듬이 자라난다</h2>
+          <p>
+            두 번째 막은 색채의 진폭을 초록 계열로 이동시킵니다. 무대 앞에 서서 버튼을 누르면
+            <code>:has()</code>를 통해 배경의 빛줄기가 더 뜨겁게 상승합니다.
+          </p>
+          <p class="stage-note">SCENE NOTES</p>
+          <ul>
+            <li>강한 필름 느낌의 <code>mix-blend-mode: screen</code></li>
+            <li><code>@property</code>로 등록한 커스텀 프로퍼티 애니메이션</li>
+            <li>시각적 서브레이어를 위한 두 개의 독립적 가상 요소</li>
+          </ul>
+          <button class="spark" type="button">리듬 강화</button>
+        </section>
+        <section class="scene" data-scene="III">
+          <p class="act">Act III · Vortex Hymn</p>
+          <h2>보랏빛 소용돌이가 시간축을 휘어진다</h2>
+          <p>
+            세 번째 막부터는 <code>perspective-origin</code>을 위로 이동시켜 관객이 무대를 내려다보는 듯한
+            착시를 줍니다. <code>animation-range</code> 덕분에 장면이 화면을 떠나갈 때까지 빛이 서서히 깜박입니다.
+          </p>
+          <p class="stage-note">SCENE NOTES</p>
+          <ul>
+            <li><code>animation-range: exit 70%</code>으로 잔광 유지</li>
+            <li>반응형 패딩과 <code>clamp()</code>로 대형 화면 대응</li>
+            <li>텍스트는 <code>font-variation-settings</code>로 긴장감을 표현</li>
+          </ul>
+          <button class="spark" type="button">소용돌이 가속</button>
+        </section>
+        <section class="scene" data-scene="IV">
+          <p class="act">Finale · Ember Chorus</p>
+          <h2>황금 잔향이 무대를 닫다</h2>
+          <p>
+            마지막 장면은 불꽃빛을 남겨 관객의 시야를 감싸 줍니다. 스크롤이 끝나면 타임라인 미터가 가득 차며
+            공연이 마무리됩니다.
+          </p>
+          <p class="stage-note">SCENE NOTES</p>
+          <ul>
+            <li><code>prefers-reduced-motion</code> 대응으로 접근성 확보</li>
+            <li>관객 상호작용 시 <code>:has()</code>로 즉시 반응</li>
+            <li>무대 전환에 JS 없이도 충분한 서사 연출</li>
+          </ul>
+          <button class="spark" type="button">커튼콜</button>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>

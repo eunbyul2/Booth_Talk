@@ -73,9 +73,12 @@
   font-size: 14px;
   font-weight: 600;
   margin-bottom: 16px;
-  padding: 8px 0;
+  padding: 8px 12px;
   cursor: pointer;
   transition: all 0.2s ease;
+  position: relative;
+  z-index: 10;
+  display: inline-block;
 }
 
 .btn-back:hover {
@@ -473,6 +476,112 @@
   .event-item-arrow {
     display: none;
   }
+}
+
+/* Light Mode Styles */
+[data-theme="light"] .event-list-page {
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  color: #1A202C;
+}
+
+[data-theme="light"] .event-list-header {
+  background: rgba(255, 255, 255, 0.9);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .btn-back {
+  color: #1A202C;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+}
+
+[data-theme="light"] .btn-back:hover {
+  background: rgba(255, 255, 255, 1);
+  color: #2D3748;
+}
+
+[data-theme="light"] .search-box {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: #1A202C;
+}
+
+[data-theme="light"] .search-box input {
+  color: #1A202C;
+}
+
+[data-theme="light"] .search-box input::placeholder {
+  color: #718096;
+}
+
+[data-theme="light"] .current-datetime {
+  color: #4A5568;
+}
+
+[data-theme="light"] .exhibition-card {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  color: #1A202C;
+}
+
+[data-theme="light"] .exhibition-badge {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+[data-theme="light"] .exhibition-title {
+  color: #1A202C;
+}
+
+[data-theme="light"] .info-item {
+  color: #4A5568;
+}
+
+[data-theme="light"] .section-title {
+  color: #1A202C;
+}
+
+[data-theme="light"] .results-info {
+  color: #4A5568;
+}
+
+[data-theme="light"] .event-item {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .event-item:hover {
+  border-color: rgba(102, 126, 234, 0.3);
+  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.15);
+}
+
+[data-theme="light"] .booth-badge {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+[data-theme="light"] .event-item-name {
+  color: #1A202C;
+}
+
+[data-theme="light"] .event-item-description {
+  color: #4A5568;
+}
+
+[data-theme="light"] .time-slots {
+  color: #718096;
+}
+
+[data-theme="light"] .event-item-benefits {
+  background: rgba(102, 126, 234, 0.1);
+  color: #5a67d8;
+}
+
+[data-theme="light"] .error-box,
+[data-theme="light"] .loading-box,
+[data-theme="light"] .empty-box {
+  color: #4A5568;
 }
 
 @media (prefers-reduced-motion: reduce) {
