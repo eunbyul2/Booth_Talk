@@ -230,6 +230,8 @@ async def search_available_events(
     visit_time: Optional[str] = Query(None, description="방문 희망 시간 (HH:MM)"),
     event_type: Optional[str] = Query(None, description="이벤트 타입 필터"),
     location: Optional[str] = Query(None, description="장소 필터"),
+    venue_name: Optional[str] = Query(None, description="전시장 이름 필터"),
+    venue_id: Optional[int] = Query(None, description="전시장 ID 필터"),
     company_name: Optional[str] = Query(None, description="회사명 검색"),
     keyword: Optional[str] = Query(None, description="이벤트명/설명 검색 키워드"),
     only_available: bool = Query(True, description="현재/지정시간 입장 가능한 이벤트만"),
@@ -279,7 +281,26 @@ async def search_available_events(
     
     # 장소 필터
     if location:
-        query = query.filter(Event.location.ilike(f"%{location}%"))
+        like_pattern = f"%{location}%"
+        query = query.filter(
+            or_(
+                Event.location.ilike(like_pattern),
+                Venue.venue_name.ilike(like_pattern),
+                Venue.location.ilike(like_pattern),
+            )
+        )
+
+    if venue_id:
+        query = query.filter(Event.venue_id == venue_id)
+
+    if venue_name:
+        venue_like = f"%{venue_name}%"
+        query = query.filter(
+            or_(
+                Venue.venue_name.ilike(venue_like),
+                Event.location.ilike(venue_like),
+            )
+        )
     
     # 회사명 검색
     if company_name:
@@ -337,6 +358,8 @@ async def search_available_events(
             "filters_applied": {
                 "event_type": event_type,
                 "location": location,
+                "venue_name": venue_name,
+                "venue_id": venue_id,
                 "company_name": company_name,
                 "keyword": keyword,
                 "only_available": only_available
