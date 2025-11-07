@@ -24,7 +24,7 @@ function App() {
     <BrowserRouter>
       <Routes>
         {/* Home */}
-        <Route path="/" element={<Navigate to="/visitor" />} />
+        <Route path="/" element={<VisitorHome />} />
 
         {/* Company Routes - 일반 로그인과 매직링크 모두 지원 */}
         <Route path="/company/login" element={<CompanyLogin />} />

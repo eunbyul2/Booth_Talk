@@ -1,27 +1,218 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { MapPin, Calendar, Search } from "lucide-react";
+import { MapPin, Search } from "lucide-react";
 import "./VisitorHome.css";
 import { loadGoogleMaps } from "../../utils/loadGoogleMaps";
 import { getVisitorEvents } from "../../apiClient";
 
-const FALLBACK_IMAGE = "https://placehold.co/400x200?text=Exhibition";
+const DEFAULT_MAP_CENTER = { lat: 37.5665, lng: 126.978 };
+
+function toNumberOrNull(value) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function transformEventsToExhibitions(eventList) {
+  const groups = new Map();
+
+  eventList.forEach((event) => {
+    const baseKey =
+      event.venue_id !== null && event.venue_id !== undefined
+        ? `venue-${event.venue_id}`
+        : event.venue_name
+        ? `name-${event.venue_name}`
+        : event.location
+        ? `location-${event.location}`
+        : `event-${event.id}`;
+
+    const lat = toNumberOrNull(event.latitude);
+    const lng = toNumberOrNull(event.longitude);
+
+    if (!groups.has(baseKey)) {
+      groups.set(baseKey, {
+        id: baseKey,
+        venueId:
+          event.venue_id !== null && event.venue_id !== undefined
+            ? event.venue_id
+            : null,
+        name:
+          event.venue_name || event.location || event.event_name || "전시장",
+        code: event.venue_name ? "전시장" : event.event_type || "이벤트",
+        description: event.description || "",
+        location: event.location || event.venue_location || "",
+        hallInfo:
+          event.venue_address || event.location || event.venue_location || "",
+        venueName: event.venue_name || event.location || "전시장",
+        lat,
+        lng,
+        startDate: event.start_date || null,
+        endDate: event.end_date || event.start_date || null,
+        eventCount: 0,
+        companyIds: new Set(),
+        eventNames: new Set(),
+      });
+    }
+
+    const group = groups.get(baseKey);
+
+    if (lat !== null && group.lat === null) {
+      group.lat = lat;
+    }
+    if (lng !== null && group.lng === null) {
+      group.lng = lng;
+    }
+
+    if (event.start_date) {
+      if (
+        !group.startDate ||
+        new Date(event.start_date) < new Date(group.startDate)
+      ) {
+        group.startDate = event.start_date;
+      }
+    }
+
+    const eventEnd = event.end_date || event.start_date;
+    if (eventEnd) {
+      if (!group.endDate || new Date(eventEnd) > new Date(group.endDate)) {
+        group.endDate = eventEnd;
+      }
+    }
+
+    if (!group.description && event.description) {
+      group.description = event.description;
+    }
+
+    if (!group.location && (event.location || event.venue_location)) {
+      group.location = event.location || event.venue_location || "";
+    }
+
+    if (!group.hallInfo && (event.venue_address || event.location)) {
+      group.hallInfo =
+        event.venue_address || event.location || event.venue_location || "";
+    }
+
+    if (!group.venueName && event.venue_name) {
+      group.venueName = event.venue_name;
+    }
+
+    if (event.event_name) {
+      group.eventNames.add(event.event_name);
+    }
+
+    if (event.company_id !== null && event.company_id !== undefined) {
+      group.companyIds.add(event.company_id);
+    }
+
+    group.eventCount += 1;
+  });
+
+  return Array.from(groups.values())
+    .map((group) => {
+      const uniqueCompanyCount = group.companyIds.size;
+      const baseDescription = group.description?.trim();
+      let finalDescription = baseDescription || "";
+
+      if (!finalDescription && group.eventNames.size > 0) {
+        const highlights = Array.from(group.eventNames)
+          .filter(Boolean)
+          .slice(0, 2)
+          .join(", ");
+        if (highlights) {
+          finalDescription = `${highlights} 등 다양한 전시 이벤트가 진행 중입니다.`;
+        }
+      }
+
+      const trimmedName = group.name?.trim();
+      const displayName =
+        trimmedName ||
+        group.venueName?.trim() ||
+        group.location?.trim() ||
+        "전시장";
+
+      return {
+        id: group.id,
+        venueId: group.venueId,
+        name: displayName,
+        code: group.code || "전시장",
+        description: finalDescription,
+        location: group.location,
+        hallInfo: group.hallInfo,
+        venueName: group.venueName || displayName,
+        lat: group.lat,
+        lng: group.lng,
+        startDate: group.startDate,
+        endDate: group.endDate,
+        eventCount:
+          uniqueCompanyCount > 0 ? uniqueCompanyCount : group.eventCount,
+      };
+    })
+    .sort((a, b) => {
+      const dateA = a.startDate
+        ? new Date(a.startDate).getTime()
+        : Number.MAX_SAFE_INTEGER;
+      const dateB = b.startDate
+        ? new Date(b.startDate).getTime()
+        : Number.MAX_SAFE_INTEGER;
+      return dateA - dateB;
+    });
+}
+
+function calculateDistanceKm(from, to) {
+  if (!from || !to) {
+    return null;
+  }
+
+  const toRadians = (value) => (value * Math.PI) / 180;
+  const earthRadiusKm = 6371;
+
+  const dLat = toRadians(to.lat - from.lat);
+  const dLng = toRadians(to.lng - from.lng);
+  const lat1 = toRadians(from.lat);
+  const lat2 = toRadians(to.lat);
+
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.sin(dLng / 2) * Math.sin(dLng / 2) * Math.cos(lat1) * Math.cos(lat2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return earthRadiusKm * c;
+}
+
+function formatDistance(distanceKm) {
+  if (distanceKm === null || distanceKm === undefined) {
+    return null;
+  }
+  if (distanceKm < 1) {
+    return `${Math.round(distanceKm * 1000)}m`;
+  }
+  return `${distanceKm.toFixed(1)}km`;
+}
+
+function formatStatValue(value) {
+  if (typeof value !== "number" || Number.isNaN(value)) return "-";
+  if (value >= 1000) {
+    return `${(value / 1000).toFixed(1)}K`;
+  }
+  return value.toLocaleString();
+}
 
 export default function VisitorHome() {
   const navigate = useNavigate();
   const mapRef = useRef(null);
-  const [hoveredExhibitionId, setHoveredExhibitionId] = useState(null);
   const exhibitionMarkersRef = useRef([]);
-
-  const [exhibitions, setExhibitions] = useState([]);
   const [events, setEvents] = useState([]);
+  const [exhibitions, setExhibitions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [mapInstance, setMapInstance] = useState(null);
   const [infoWindow, setInfoWindow] = useState(null);
-  const [sortOrder, setSortOrder] = useState("date_asc");
+  const [userPosition, setUserPosition] = useState(null);
+  const [locationNotice, setLocationNotice] = useState("");
+  const [hoveredExhibitionId, setHoveredExhibitionId] = useState(null);
+  const [sortOrder, setSortOrder] = useState("distance");
   const [searchQuery, setSearchQuery] = useState("");
-  const [locationNotice, setLocationNotice] = useState(null);
   const [heroGlow, setHeroGlow] = useState({
     x: 50,
     y: 50,
@@ -29,49 +220,23 @@ export default function VisitorHome() {
     tiltY: "0deg",
   });
 
-  const transformEventsToExhibitions = (fetchedEvents) => {
-    return fetchedEvents.map((event) => {
-      const startDate = event.start_date;
-      const endDate = event.end_date;
-      const lat = event.latitude ? Number(event.latitude) : null;
-      const lng = event.longitude ? Number(event.longitude) : null;
-
-      return {
-        id: event.id,
-        name: event.event_name,
-        code: event.booth_number || event.event_type || "이벤트",
-        startDate,
-        endDate,
-        hallInfo: event.location || "장소 정보 없음",
-        venueName: event.venue_name || "전시장 미정",
-        location: event.venue_location || event.location || "",
-        description: event.description || "등록된 설명이 없습니다.",
-        organizer: event.company_name,
-        eventCount: 1,
-        lat: Number.isFinite(lat) ? lat : null,
-        lng: Number.isFinite(lng) ? lng : null,
-        image: event.image_url || FALLBACK_IMAGE,
-      };
-    });
-  };
-
-  // Fetch exhibitions from API
   useEffect(() => {
     let mounted = true;
 
     async function fetchEvents() {
-      try {
-        setLoading(true);
-        setError(null);
+      setLoading(true);
+      setError(null);
 
+      try {
         const data = await getVisitorEvents({
           only_available: false,
           limit: 100,
+          sort_by: "date_asc",
         });
-        const fetchedEvents = Array.isArray(data?.events) ? data.events : [];
 
         if (!mounted) return;
 
+        const fetchedEvents = Array.isArray(data?.events) ? data.events : [];
         setEvents(fetchedEvents);
         setExhibitions(transformEventsToExhibitions(fetchedEvents));
       } catch (err) {
@@ -96,20 +261,24 @@ export default function VisitorHome() {
     };
   }, []);
 
-  // Initialize map
   useEffect(() => {
+    let isActive = true;
+
     async function init() {
       try {
         const google = await loadGoogleMaps();
-        const defaultCenter = { lat: 37.5665, lng: 126.978 };
-        let pos = defaultCenter;
+        if (!isActive) {
+          return;
+        }
+
+        let pos = DEFAULT_MAP_CENTER;
+        let resolvedUserPosition = null;
 
         const hasGeolocation =
           typeof navigator !== "undefined" && !!navigator.geolocation;
         const isSecure =
           typeof window !== "undefined"
-            ? window.isSecureContext ||
-              window.location.protocol === "https:"
+            ? window.isSecureContext || window.location.protocol === "https:"
             : true;
 
         if (!hasGeolocation) {
@@ -125,9 +294,7 @@ export default function VisitorHome() {
         if (hasGeolocation && isSecure) {
           try {
             const permission = navigator.permissions
-              ? await navigator.permissions.query({
-                  name: "geolocation",
-                })
+              ? await navigator.permissions.query({ name: "geolocation" })
               : null;
 
             if (permission?.state === "denied") {
@@ -135,25 +302,38 @@ export default function VisitorHome() {
                 "위치 권한이 거부되어 기본 좌표로 지도를 표시합니다."
               );
             } else {
-              pos = await new Promise((resolve) => {
+              let usedUserLocation = false;
+              const result = await new Promise((resolve) => {
                 navigator.geolocation.getCurrentPosition(
-                  (p) =>
+                  (p) => {
+                    usedUserLocation = true;
                     resolve({
                       lat: p.coords.latitude,
                       lng: p.coords.longitude,
-                    }),
-                  () => resolve(defaultCenter),
+                    });
+                  },
+                  () => resolve(DEFAULT_MAP_CENTER),
                   { enableHighAccuracy: true, timeout: 5000 }
                 );
               });
+              pos = result;
+              if (usedUserLocation) {
+                resolvedUserPosition = result;
+              }
             }
           } catch {
             setLocationNotice(
               "위치 정보를 가져오지 못해 기본 좌표를 사용합니다."
             );
-            pos = defaultCenter;
+            pos = DEFAULT_MAP_CENTER;
           }
         }
+
+        if (!isActive) {
+          return;
+        }
+
+        setUserPosition(resolvedUserPosition);
 
         const map = new google.maps.Map(mapRef.current, {
           center: pos,
@@ -161,42 +341,58 @@ export default function VisitorHome() {
           mapId: "DEMO_MAP",
           fullscreenControl: false,
         });
+
+        if (!isActive) {
+          return;
+        }
+
         setMapInstance(map);
 
         const info = new google.maps.InfoWindow();
         setInfoWindow(info);
 
-        new google.maps.Marker({
-          position: pos,
-          map: map,
-          title: "내 위치",
-          icon: {
-            path: google.maps.SymbolPath.CIRCLE,
-            scale: 8,
-            fillColor: "#2563eb",
-            fillOpacity: 1,
-            strokeWeight: 2,
-            strokeColor: "#ffffff",
-          },
-        });
+        if (resolvedUserPosition) {
+          new google.maps.Marker({
+            position: resolvedUserPosition,
+            map,
+            title: "내 위치",
+            icon: {
+              path: google.maps.SymbolPath.CIRCLE,
+              scale: 8,
+              fillColor: "#2563eb",
+              fillOpacity: 1,
+              strokeWeight: 2,
+              strokeColor: "#ffffff",
+            },
+          });
+        }
       } catch (e) {
+        if (!isActive) return;
         console.error(e);
         setLocationNotice(
           "지도 서비스를 불러오지 못했습니다. 전시 정보는 정상적으로 확인할 수 있습니다."
         );
       }
     }
+
     init();
+
+    return () => {
+      isActive = false;
+    };
   }, []);
 
-  // Create exhibition markers
   useEffect(() => {
-    if (!mapInstance || !infoWindow || exhibitions.length === 0) return;
+    if (!mapInstance || !infoWindow || exhibitions.length === 0) {
+      return;
+    }
 
     const maps = window.google?.maps;
-    if (!maps) return;
+    if (!maps) {
+      return;
+    }
 
-    exhibitionMarkersRef.current.forEach(({ marker }) => marker.setMap(null));
+    exhibitionMarkersRef.current.forEach(({ marker }) => marker?.setMap(null));
     exhibitionMarkersRef.current = [];
 
     const markers = exhibitions.map((ex) => {
@@ -204,46 +400,47 @@ export default function VisitorHome() {
         return null;
       }
 
-      const size = 12;
-
       const marker = new maps.Marker({
         position: { lat: ex.lat, lng: ex.lng },
         map: mapInstance,
         title: ex.name,
         icon: {
-          url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
-            <svg width="${size * 2}" height="${
-            size * 2
-          }" xmlns="http://www.w3.org/2000/svg">
-              <defs>
-                <clipPath id="circle-${ex.id}">
-                  <circle cx="${size}" cy="${size}" r="${size}"/>
-                </clipPath>
-              </defs>
-              <circle cx="${size}" cy="${size}" r="${size}" fill="white"/>
-              <image href="${ex.image}" width="${size * 2}" height="${
-            size * 2
-          }" clip-path="url(#circle-${ex.id})"/>
-              <circle cx="${size}" cy="${size}" r="${size}" fill="none" stroke="#FF6B6B" stroke-width="3"/>
-            </svg>
-          `)}`,
-          scaledSize: new maps.Size(size * 2, size * 2),
-          anchor: new maps.Point(size, size),
+          path: maps.SymbolPath.CIRCLE,
+          scale: 9,
+          fillColor: "#FF6B6B",
+          fillOpacity: 0.9,
+          strokeColor: "#ffffff",
+          strokeWeight: 2,
         },
         zIndex: 100,
       });
 
       marker.addListener("click", () => {
-        const formatDate = (dateStr) => {
-          const date = new Date(dateStr);
-          return `${date.getMonth() + 1}.${date.getDate()}`;
-        };
+        const distanceKm =
+          userPosition && Number.isFinite(ex.lat) && Number.isFinite(ex.lng)
+            ? calculateDistanceKm(userPosition, { lat: ex.lat, lng: ex.lng })
+            : null;
+        const distanceText = formatDistance(distanceKm);
+        const locationLine = [ex.venueName, ex.hallInfo]
+          .filter(Boolean)
+          .join(" · ");
+
+        const params = new URLSearchParams();
+        if (ex.location) {
+          params.set("location", ex.location);
+        }
+        if (ex.venueName) {
+          params.set("venue_name", ex.venueName);
+        }
+        if (ex.venueId) {
+          params.set("venue_id", ex.venueId);
+        }
+        const detailUrl = params.toString()
+          ? `/visitor/events?${params.toString()}`
+          : "/visitor/events";
 
         infoWindow.setContent(`
           <div style="min-width: 280px; padding: 12px;">
-            <img src="${ex.image}" alt="${
-          ex.name
-        }" style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px; margin-bottom: 8px;" />
             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
               <span style="font-size: 11px; padding: 3px 8px; background: rgba(255, 107, 107, 0.2); color: #FF6B6B; border-radius: 4px; font-weight: 700;">${
                 ex.code
@@ -256,15 +453,7 @@ export default function VisitorHome() {
             <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #eee;">
               <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
                 <span>📍</span>
-                <span style="font-size: 13px; color: #666;">${ex.venueName} ${
-          ex.hallInfo
-        }</span>
-              </div>
-              <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
-                <span>📅</span>
-                <span style="font-size: 13px; color: #666;">${formatDate(
-                  ex.startDate
-                )} ~ ${formatDate(ex.endDate)}</span>
+                <span style="font-size: 13px; color: #666;">${locationLine}</span>
               </div>
               <div style="display: flex; align-items: center; gap: 6px;">
                 <span>🏢</span>
@@ -272,10 +461,13 @@ export default function VisitorHome() {
                   ex.eventCount
                 }개</span>
               </div>
+              ${
+                distanceText
+                  ? `<div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;"><span>🚶</span><span style="font-size: 13px; color: #666;">내 위치로부터 ${distanceText}</span></div>`
+                  : ""
+              }
             </div>
-            <button onclick="window.location.href='/visitor/events?exhibition_id=${
-              ex.id
-            }'" style="
+            <button onclick="window.location.href='${detailUrl}'" style="
               margin-top: 12px;
               width: 100%;
               padding: 8px;
@@ -295,9 +487,16 @@ export default function VisitorHome() {
     });
 
     exhibitionMarkersRef.current = markers.filter(Boolean);
-  }, [mapInstance, infoWindow, exhibitions]);
 
-  // Handle hover effect
+    return () => {
+      markers.forEach((entry) => {
+        if (entry?.marker) {
+          entry.marker.setMap(null);
+        }
+      });
+    };
+  }, [mapInstance, infoWindow, exhibitions, userPosition]);
+
   useEffect(() => {
     if (exhibitionMarkersRef.current.length === 0) return;
 
@@ -306,66 +505,64 @@ export default function VisitorHome() {
 
     exhibitionMarkersRef.current.forEach(({ marker, exhibitionId }) => {
       const exhibition = exhibitions.find((e) => e.id === exhibitionId);
-      if (!exhibition) return;
+      if (!exhibition || !marker) return;
 
-      const normalSize = 12;
-      const hoverSize = 16;
-      const size =
-        hoveredExhibitionId === exhibitionId ? hoverSize : normalSize;
-
-      if (!marker) return;
+      const isHovered = hoveredExhibitionId === exhibitionId;
 
       marker.setIcon({
-        url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
-          <svg width="${size * 2}" height="${
-          size * 2
-        }" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <clipPath id="circle-${exhibitionId}">
-                <circle cx="${size}" cy="${size}" r="${size}"/>
-              </clipPath>
-            </defs>
-            <circle cx="${size}" cy="${size}" r="${size}" fill="white"/>
-            <image href="${exhibition.image}" width="${size * 2}" height="${
-          size * 2
-        }" clip-path="url(#circle-${exhibitionId})"/>
-            <circle cx="${size}" cy="${size}" r="${size}" fill="none" stroke="#FF6B6B" stroke-width="${
-          hoveredExhibitionId === exhibitionId ? "4" : "3"
-        }"/>
-          </svg>
-        `)}`,
-        scaledSize: new maps.Size(size * 2, size * 2),
-        anchor: new maps.Point(size, size),
+        path: maps.SymbolPath.CIRCLE,
+        scale: isHovered ? 11 : 9,
+        fillColor: isHovered ? "#FF8A80" : "#FF6B6B",
+        fillOpacity: 0.95,
+        strokeColor: "#ffffff",
+        strokeWeight: isHovered ? 3 : 2,
       });
-      marker.setZIndex(hoveredExhibitionId === exhibitionId ? 1000 : 100);
+      marker.setZIndex(isHovered ? 1000 : 100);
     });
   }, [hoveredExhibitionId, exhibitions]);
 
-  // Sort exhibitions
-  const sortedExhibitions = [...exhibitions].sort((a, b) => {
-    if (sortOrder === "date_asc") {
-      const dateA = new Date(a.startDate);
-      const dateB = new Date(b.startDate);
-      return dateA - dateB;
-    } else if (sortOrder === "date_desc") {
-      const dateA = new Date(a.startDate);
-      const dateB = new Date(b.startDate);
-      return dateB - dateA;
-    } else if (sortOrder === "location") {
-      // 장소별 정렬 (가나다순)
-      return a.venueName.localeCompare(b.venueName, "ko");
-    }
-    return 0;
-  });
+  const exhibitionsWithDistance = useMemo(() => {
+    return exhibitions.map((ex) => {
+      if (userPosition && Number.isFinite(ex.lat) && Number.isFinite(ex.lng)) {
+        const distanceKm = calculateDistanceKm(userPosition, {
+          lat: ex.lat,
+          lng: ex.lng,
+        });
+        return { ...ex, distanceKm };
+      }
+      return { ...ex, distanceKm: null };
+    });
+  }, [exhibitions, userPosition]);
 
-  const formatDate = (dateStr) => {
-    const date = new Date(dateStr);
-    const month = date.getMonth() + 1;
-    const day = date.getDate();
-    const dayNames = ["일", "월", "화", "수", "목", "금", "토"];
-    const dayName = dayNames[date.getDay()];
-    return `${month}.${day}(${dayName})`;
-  };
+  const sortedExhibitions = useMemo(() => {
+    const list = [...exhibitionsWithDistance];
+
+    if (sortOrder === "distance" && userPosition) {
+      list.sort((a, b) => {
+        if (a.distanceKm === null) return 1;
+        if (b.distanceKm === null) return -1;
+        return a.distanceKm - b.distanceKm;
+      });
+    } else if (sortOrder === "date_asc") {
+      list.sort((a, b) => {
+        const dateA = a.startDate ? new Date(a.startDate) : new Date();
+        const dateB = b.startDate ? new Date(b.startDate) : new Date();
+        return dateA - dateB;
+      });
+    } else if (sortOrder === "date_desc") {
+      list.sort((a, b) => {
+        const dateA = a.startDate ? new Date(a.startDate) : new Date();
+        const dateB = b.startDate ? new Date(b.startDate) : new Date();
+        return dateB - dateA;
+      });
+    } else if (sortOrder === "location") {
+      list.sort((a, b) =>
+        (a.venueName || "").localeCompare(b.venueName || "", "ko")
+      );
+    }
+
+    return list;
+  }, [exhibitionsWithDistance, sortOrder, userPosition]);
 
   const totalExhibitions = exhibitions.length;
   const uniqueCompanyCount =
@@ -376,14 +573,6 @@ export default function VisitorHome() {
     (sum, event) => sum + (event.view_count || 0),
     0
   );
-
-  const formatStatValue = (value) => {
-    if (typeof value !== "number" || Number.isNaN(value)) return "-";
-    if (value >= 1000) {
-      return `${(value / 1000).toFixed(1)}K`;
-    }
-    return value.toLocaleString();
-  };
 
   return (
     <div className="visitor-home">
@@ -481,9 +670,7 @@ export default function VisitorHome() {
               <div className="map-frame">
                 <div ref={mapRef} className="map-frame-inner" />
               </div>
-              {locationNotice && (
-                <p className="map-notice">{locationNotice}</p>
-              )}
+              {locationNotice && <p className="map-notice">{locationNotice}</p>}
             </div>
 
             <div className="list-card">
@@ -505,6 +692,7 @@ export default function VisitorHome() {
                     value={sortOrder}
                     onChange={(e) => setSortOrder(e.target.value)}
                   >
+                    <option value="distance">가까운 순</option>
                     <option value="date_asc">시간 빠른 순</option>
                     <option value="date_desc">시간 느린 순</option>
                     <option value="location">장소별</option>
@@ -527,45 +715,55 @@ export default function VisitorHome() {
                 )}
 
                 {!loading &&
-                  sortedExhibitions.map((exhibition) => (
+                  sortedExhibitions.slice(0, 6).map((exhibition) => (
                     <div
                       key={exhibition.id}
                       className={`home-exhibition-card${
-                        hoveredExhibitionId === exhibition.id ? " is-hovered" : ""
+                        hoveredExhibitionId === exhibition.id
+                          ? " is-hovered"
+                          : ""
                       }`}
-                      onClick={() =>
-                        navigate(`/visitor/events?exhibition_id=${exhibition.id}`)
-                      }
+                      onClick={() => {
+                        const params = new URLSearchParams();
+                        if (exhibition.location) {
+                          params.set("location", exhibition.location);
+                        }
+                        if (exhibition.venueName) {
+                          params.set("venue_name", exhibition.venueName);
+                        }
+                        if (exhibition.venueId) {
+                          params.set("venue_id", exhibition.venueId);
+                        }
+                        const target = params.toString()
+                          ? `/visitor/events?${params.toString()}`
+                          : "/visitor/events";
+                        navigate(target);
+                      }}
                       onMouseEnter={() => setHoveredExhibitionId(exhibition.id)}
                       onMouseLeave={() => setHoveredExhibitionId(null)}
                     >
-                      <div className="home-exhibition-thumb">
-                        <img src={exhibition.image} alt={exhibition.name} />
-                      </div>
                       <div className="home-exhibition-body">
-                        <div>
+                        <div className="home-exhibition-header">
                           <div className="home-exhibition-title">
                             <span className="home-exhibition-badge">
                               {exhibition.code}
                             </span>
                             <h3>{exhibition.name}</h3>
                           </div>
-                          <p className="home-exhibition-desc">
-                            {exhibition.description || "등록된 설명이 없습니다."}
-                          </p>
+                          {exhibition.distanceKm !== null && (
+                            <div className="home-exhibition-distance">
+                              🚶 {formatDistance(exhibition.distanceKm)} 거리
+                            </div>
+                          )}
                         </div>
+                        <p className="home-exhibition-desc">
+                          {exhibition.description || "등록된 설명이 없습니다."}
+                        </p>
                         <div className="home-exhibition-meta">
                           <div className="home-exhibition-metaItem home-exhibition-metaItem--location">
                             <MapPin size={16} />
                             <span>
-                              {exhibition.venueName} {exhibition.hallInfo}
-                            </span>
-                          </div>
-                          <div className="home-exhibition-metaItem home-exhibition-metaItem--date">
-                            <Calendar size={16} />
-                            <span>
-                              {formatDate(exhibition.startDate)} ~{" "}
-                              {formatDate(exhibition.endDate)}
+                              {exhibition.hallInfo || "주소 정보 없음"}
                             </span>
                           </div>
                           <div className="home-exhibition-metaItem">

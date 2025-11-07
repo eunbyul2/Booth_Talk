@@ -4,13 +4,22 @@ import { Search, Calendar, MapPin, Clock, ChevronRight } from "lucide-react";
 import "./EventList.css";
 import { getVisitorEvents, getVisitorEventDetail } from "../../apiClient";
 
-const FALLBACK_POSTER = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Crect width='120' height='120' fill='%231E3A8A'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='14' fill='white'%3EEvent%3C/text%3E%3C/svg%3E";
+const FALLBACK_POSTER =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Crect width='120' height='120' fill='%231E3A8A'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='14' fill='white'%3EEvent%3C/text%3E%3C/svg%3E";
 
 export default function EventList() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const exhibitionId = searchParams.get("exhibition_id");
   const urlSearchQuery = searchParams.get("search"); // URL에서 검색어 추출
+  const locationParam = searchParams.get("location");
+  const venueNameParam = searchParams.get("venue_name");
+  const venueIdParam = searchParams.get("venue_id");
+  const numericVenueIdParam =
+    venueIdParam && !Number.isNaN(Number(venueIdParam))
+      ? Number(venueIdParam)
+      : null;
+  const isVenueView = Boolean(locationParam || venueNameParam || venueIdParam);
 
   const [searchTerm, setSearchTerm] = useState(urlSearchQuery || ""); // URL 검색어로 초기화
   const [events, setEvents] = useState([]);
@@ -34,7 +43,13 @@ export default function EventList() {
 
     const timer = setTimeout(async () => {
       try {
-        if (exhibitionId && !searchTerm) {
+        if (
+          exhibitionId &&
+          !searchTerm &&
+          !locationParam &&
+          !venueNameParam &&
+          !venueIdParam
+        ) {
           const eventDetail = await getVisitorEventDetail(exhibitionId);
           if (!active) return;
           const detailArray = eventDetail ? [eventDetail] : [];
@@ -49,6 +64,18 @@ export default function EventList() {
 
           if (searchTerm) {
             params.keyword = searchTerm;
+          }
+
+          if (locationParam) {
+            params.location = locationParam;
+          }
+
+          if (numericVenueIdParam !== null) {
+            params.venue_id = numericVenueIdParam;
+          }
+
+          if (venueNameParam) {
+            params.venue_name = venueNameParam;
           }
 
           const data = await getVisitorEvents(params);
@@ -78,10 +105,26 @@ export default function EventList() {
       active = false;
       clearTimeout(timer);
     };
-  }, [searchTerm, exhibitionId]);
+  }, [searchTerm, exhibitionId, locationParam, venueNameParam, venueIdParam]);
 
   const exhibition = useMemo(() => {
-    if (!events.length) return null;
+    if (!events.length) {
+      if (!venueNameParam && !locationParam && !venueIdParam) {
+        return null;
+      }
+      return {
+        id: venueIdParam || locationParam || "selected-venue",
+        name: venueNameParam || locationParam || "전시 이벤트",
+        code: "전시장",
+        startDate: null,
+        endDate: null,
+        hallInfo: locationParam || "장소 정보 없음",
+        venueName: venueNameParam || "",
+        location: locationParam || "",
+        venueId: numericVenueIdParam,
+      };
+    }
+
     const first = events[0];
     const startDate = events.reduce((min, event) => {
       const d = new Date(event.start_date);
@@ -94,16 +137,26 @@ export default function EventList() {
     }, new Date(events[0].end_date || events[0].start_date));
 
     return {
-      id: exhibitionId || first.venue_id || first.id,
-      name: first.venue_name || "전시 이벤트",
-      code: first.event_type || "이벤트",
+      id:
+        exhibitionId ||
+        venueIdParam ||
+        locationParam ||
+        first.venue_id ||
+        first.id,
+      name:
+        venueNameParam || first.venue_name || first.location || "전시 이벤트",
+      code: first.venue_name ? "전시장" : first.event_type || "이벤트",
       startDate: startDate.toISOString().slice(0, 10),
       endDate: endDate.toISOString().slice(0, 10),
-      hallInfo: first.location || "장소 정보 없음",
-      venueName: first.venue_name || "",
-      location: first.venue_location || "",
+      hallInfo: locationParam || first.location || "장소 정보 없음",
+      venueName: venueNameParam || first.venue_name || "",
+      location: locationParam || first.venue_location || "",
+      venueId:
+        numericVenueIdParam !== null
+          ? numericVenueIdParam
+          : first.venue_id || null,
     };
-  }, [events, exhibitionId]);
+  }, [events, exhibitionId, locationParam, venueNameParam, venueIdParam]);
 
   // 현재 날짜/시간 포맷팅
   const getCurrentDateTime = () => {
@@ -147,6 +200,108 @@ export default function EventList() {
       );
     });
   }, [searchTerm, events]);
+
+  const venueExhibitions = useMemo(() => {
+    if (!isVenueView) return [];
+    const map = new Map();
+
+    filteredEvents.forEach((event) => {
+      const key = (event.event_name || "").trim();
+      if (!key) return;
+
+      const startDate = event.start_date;
+      const endDate = event.end_date || event.start_date;
+      const eventImage = event.image_url || FALLBACK_POSTER;
+
+      if (!map.has(key)) {
+        map.set(key, {
+          id: `exhibition-${event.id}`,
+          name: event.event_name || "전시 이벤트",
+          description: event.description || "",
+          startDate,
+          endDate,
+          image: eventImage,
+          venueName: event.venue_name || venueNameParam || "",
+          hallInfo: event.location || locationParam || "",
+          primaryEventId: event.id,
+          venueId: event.venue_id || numericVenueIdParam,
+          companyNames: new Set(event.company_name ? [event.company_name] : []),
+        });
+        return;
+      }
+
+      const group = map.get(key);
+
+      if (new Date(startDate) < new Date(group.startDate)) {
+        group.startDate = startDate;
+      }
+      if (new Date(endDate) > new Date(group.endDate)) {
+        group.endDate = endDate;
+      }
+
+      if (!group.description && event.description) {
+        group.description = event.description;
+      }
+
+      if (group.image === FALLBACK_POSTER && event.image_url) {
+        group.image = event.image_url;
+      }
+
+      if (event.company_name) {
+        group.companyNames.add(event.company_name);
+      }
+    });
+
+    return Array.from(map.values())
+      .map((group) => ({
+        id: group.id,
+        name: group.name,
+        description: group.description || "등록된 설명이 없습니다.",
+        startDate: group.startDate,
+        endDate: group.endDate,
+        image: group.image,
+        venueName: group.venueName,
+        hallInfo: group.hallInfo,
+        primaryEventId: group.primaryEventId,
+        venueId: group.venueId,
+        companyCount: group.companyNames.size,
+        organizers: Array.from(group.companyNames),
+      }))
+      .sort((a, b) => {
+        const dateA = a.startDate ? new Date(a.startDate) : new Date();
+        const dateB = b.startDate ? new Date(b.startDate) : new Date();
+        return dateA - dateB;
+      });
+  }, [
+    filteredEvents,
+    isVenueView,
+    locationParam,
+    venueNameParam,
+    venueIdParam,
+  ]);
+
+  const handleExhibitionSelect = (exhibition) => {
+    const params = new URLSearchParams();
+    const locationValue = locationParam || exhibition.hallInfo || "";
+    if (locationValue) {
+      params.set("location", locationValue);
+    }
+    const venueNameValue = venueNameParam || exhibition.venueName || "";
+    if (venueNameValue) {
+      params.set("venue_name", venueNameValue);
+    }
+    const venueIdValue =
+      venueIdParam ||
+      (exhibition.venueId !== null && exhibition.venueId !== undefined
+        ? String(exhibition.venueId)
+        : "");
+    if (venueIdValue) {
+      params.set("venue_id", venueIdValue);
+    }
+    params.set("search", exhibition.name);
+    setSearchTerm(exhibition.name);
+    navigate(`/visitor/events?${params.toString()}`);
+  };
 
   return (
     <div className="event-list-page">
@@ -198,6 +353,58 @@ export default function EventList() {
         )}
 
         {/* 이벤트 리스트 섹션 */}
+        {isVenueView && (
+          <div className="venue-exhibitions-section">
+            <h3 className="section-title">
+              {venueNameParam || "전시장"} 전시회 목록
+            </h3>
+            <p className="venue-exhibitions-info">
+              총 {venueExhibitions.length}개의 전시회가 진행 중입니다.
+            </p>
+
+            {venueExhibitions.length === 0 && !loading && (
+              <div className="empty-box">
+                이 전시장에서는 현재 표시할 전시회가 없습니다.
+              </div>
+            )}
+
+            <div className="venue-exhibitions-grid">
+              {venueExhibitions.map((exhibition) => (
+                <button
+                  type="button"
+                  key={exhibition.id}
+                  className="venue-exhibition-card"
+                  onClick={() => handleExhibitionSelect(exhibition)}
+                >
+                  <div className="venue-exhibition-thumb">
+                    <img src={exhibition.image} alt={exhibition.name} />
+                  </div>
+                  <div className="venue-exhibition-body">
+                    <div className="venue-exhibition-title">
+                      <h4>{exhibition.name}</h4>
+                      <span>
+                        참가 기업 {exhibition.companyCount.toLocaleString()}개
+                      </span>
+                    </div>
+                    <p className="venue-exhibition-desc">
+                      {exhibition.description}
+                    </p>
+                    <div className="venue-exhibition-meta">
+                      <span>
+                        📍 {exhibition.venueName} {exhibition.hallInfo}
+                      </span>
+                      <span>
+                        📅 {formatDate(exhibition.startDate)} ~{" "}
+                        {formatDate(exhibition.endDate)}
+                      </span>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="events-section">
           <h3 className="section-title">참여 업체 이벤트</h3>
           <div className="results-info">
