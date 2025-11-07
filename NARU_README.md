@@ -1569,3 +1569,86 @@ _작성자_: Naru (Claude Code)
 _업데이트 일시_: 2025-11-08 (Presentation Day)
 _Merge Deadline_: 2025-11-08 09:00 AM
 
+---
+
+## 오늘(2025-11-08) 추가 작업 - 방문자 페이지 UI/UX 개선
+
+### 📋 요약
+**작업 시간**: 오후 (프레젠테이션 이후)
+**주요 내용**: 테마 시스템 고도화, MatrixInfinity 배경 애니메이션, UI/UX 개선, 디버깅
+
+### ✨ 구현된 기능
+
+#### 1. 라이트/다크 테마 시스템 고도화
+- ThemeContext 전역 상태 관리 (localStorage 연동)
+- FloatingButtons 컴포넌트 생성 (테마/지도/관리자 버튼 통합)
+- MatrixInfinity 배경 애니메이션 컴포넌트
+  - 라이트 모드: 사이버펑크풍 데이터 파티클 (dot 60%, stream 25%, cluster 15%)
+  - 다크 모드: 3D 뫼비우스 띠 무한대 효과 + optical flare
+
+#### 2. UI/UX 개선
+- hero-section과 events-list 간격 최소화 (거의 붙임)
+- EventDetail 날짜/시간/장소 아이콘 보라색 박스 제거
+- EventList "홈으로" 버튼 클릭 영역 개선 (z-index, padding)
+- 테마별 색상 팔레트 정리 (sophisticated 색상으로 교체)
+
+#### 3. 디버깅 사항
+- VisitorHome 흰 화면 해결 (X 아이콘 import 누락)
+- 다크모드 hero title 흰색 박스 glow 제거 (drop-shadow 강도 축소)
+- 라이트모드 Events 페이지 텍스트 가독성 개선 (어두운 색상 적용)
+- MatrixInfinity 파티클 shadow 제거 (깔끔한 radial gradient로 대체)
+
+### 📁 변경된 파일 목록
+
+#### 신규 생성
+- `frontend/src/components/MatrixInfinity.jsx`
+- `frontend/src/components/MatrixInfinity.css`
+- `frontend/src/components/FloatingButtons.jsx`
+- `frontend/src/components/FloatingButtons.css`
+- `frontend/src/context/ThemeContext.jsx`
+
+#### 수정된 파일
+- `frontend/src/App.jsx` (ThemeProvider 래핑)
+- `frontend/src/pages/visitor/VisitorHome.jsx` (MatrixInfinity 추가)
+- `frontend/src/pages/visitor/VisitorHome.css` (spacing 조정)
+- `frontend/src/pages/visitor/EventList.jsx`
+- `frontend/src/pages/visitor/EventList.css` (버튼 개선)
+- `frontend/src/pages/visitor/EventDetail.css` (아이콘 박스 제거)
+- `frontend/src/styles/global.css` (라이트 모드 색상 개선)
+
+### 📊 통계
+- **변경 파일 수**: 27개 (5개 신규, 22개 수정)
+- **코드 라인 수**: 3,255 라인 변경
+- **커밋 ID**: 15f8841
+- **브랜치**: naruDrive
+- **원격 푸시**: 완료
+
+### 🎨 기술 상세
+
+#### MatrixInfinity 색상 팔레트
+```javascript
+const colors = {
+  electricBlue: { r: 100, g: 180, b: 255 },
+  softPurple: { r: 180, g: 140, b: 255 },
+  mintCyan: { r: 120, g: 220, b: 200 },
+  coralPink: { r: 255, g: 150, b: 180 },
+  pearlWhite: { r: 240, g: 245, b: 255 },
+};
+```
+
+#### 파티클 타입 분포
+- **Dot**: 60% (순수 원형 파티클)
+- **Stream**: 25% (바이너리 텍스트 스트림)
+- **Cluster**: 15% (5x5 픽셀 그리드)
+
+#### 렌더링 최적화
+- shadowBlur/shadowColor 완전 제거 (성능 향상)
+- createRadialGradient만 사용 (깔끔한 glow 효과)
+- Intersection Observer로 가시성 기반 애니메이션 제어
+
+---
+
+_작성자_: Naru (Claude Code)
+_업데이트 일시_: 2025-11-08 (Post-Presentation)
+_Git Commit_: 15f8841
+
