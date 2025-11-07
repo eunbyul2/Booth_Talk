@@ -51,6 +51,7 @@ class Company(Base):
     # Relationships
     creator = relationship("Admin", back_populates="created_companies", foreign_keys=[created_by])
     events = relationship("Event", back_populates="company", cascade="all, delete-orphan")
+    exhibitions = relationship("Exhibition", back_populates="company")
     
     def __repr__(self):
         return f"<Company(id={self.id}, name='{self.company_name}', username='{self.username}')>"

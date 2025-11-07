@@ -8,6 +8,7 @@ from database import Base
 from .admin import Admin
 from .company import Company
 from .venue import Venue
+from .exhibition import Exhibition
 from .event import Event
 from .tag import Tag
 from .event_manager import EventManager
@@ -20,6 +21,7 @@ __all__ = [
     "Admin",
     "Company",
     "Venue",
+    "Exhibition",
     "Event",
     "Tag",
     "EventManager",

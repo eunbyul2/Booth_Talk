@@ -1,9 +1,6 @@
 -- Booth Talk database schema (aligned with SQLAlchemy models)
 -- This script recreates all tables to match backend ORM definitions.
-
--- Database bootstrap -------------------------------------------------------
-CREATE DATABASE exhibition_platform;
-\connect exhibition_platform;
+-- Run \c <database_name> beforehand if you need to switch databases.
 
 -- Clean existing objects when re-running the script -----------------------
 DROP TABLE IF EXISTS system_logs CASCADE;
@@ -15,6 +12,7 @@ DROP TABLE IF EXISTS event_managers CASCADE;
 DROP TABLE IF EXISTS event_tags CASCADE;
 DROP TABLE IF EXISTS tags CASCADE;
 DROP TABLE IF EXISTS events CASCADE;
+DROP TABLE IF EXISTS exhibitions CASCADE;
 DROP TABLE IF EXISTS companies CASCADE;
 DROP TABLE IF EXISTS venues CASCADE;
 DROP TABLE IF EXISTS admins CASCADE;
@@ -90,11 +88,52 @@ CREATE INDEX idx_companies_token_expiry ON companies (token_expires_at);
 COMMENT ON TABLE companies IS '기업 계정 테이블';
 COMMENT ON COLUMN companies.magic_token IS '매직 링크 토큰';
 
--- 4. Events ---------------------------------------------------------------
+-- 4. Exhibitions ----------------------------------------------------------
+CREATE TABLE exhibitions (
+    id SERIAL PRIMARY KEY,
+    venue_id INTEGER NOT NULL REFERENCES venues (id) ON DELETE CASCADE,
+    company_id INTEGER REFERENCES companies (id) ON DELETE SET NULL,
+    source_event_id VARCHAR(50),
+    title VARCHAR(300) NOT NULL,
+    subtitle VARCHAR(300),
+    category VARCHAR(100),
+    classification VARCHAR(100),
+    sector VARCHAR(100),
+    hall_location VARCHAR(255),
+    admission_fee VARCHAR(255),
+    organizer TEXT,
+    host TEXT,
+    contact_info TEXT,
+    group_contact TEXT,
+    ticket_contact TEXT,
+    website_url VARCHAR(1024),
+    ticket_url VARCHAR(1024),
+    image_url VARCHAR(1024),
+    image_alt VARCHAR(255),
+    description TEXT,
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX idx_exhibitions_venue_id ON exhibitions (venue_id);
+CREATE INDEX idx_exhibitions_company_id ON exhibitions (company_id);
+CREATE INDEX idx_exhibitions_start_date ON exhibitions (start_date);
+CREATE INDEX idx_exhibitions_end_date ON exhibitions (end_date);
+CREATE INDEX idx_exhibitions_is_active ON exhibitions (is_active);
+
+COMMENT ON TABLE exhibitions IS '전시장 내 행사(Exhibition) 테이블';
+COMMENT ON COLUMN exhibitions.category IS '행사분류 (Pop-up/Event, Exhibition 등)';
+COMMENT ON COLUMN exhibitions.classification IS '행사구분 (주최전시, 일반전시 등)';
+COMMENT ON COLUMN exhibitions.sector IS '행사분야';
+
+-- 5. Events ---------------------------------------------------------------
 CREATE TABLE events (
     id SERIAL PRIMARY KEY,
     company_id INTEGER NOT NULL REFERENCES companies (id) ON DELETE CASCADE,
-    venue_id INTEGER REFERENCES venues (id) ON DELETE SET NULL,
+    exhibition_id INTEGER NOT NULL REFERENCES exhibitions (id) ON DELETE CASCADE,
     event_name VARCHAR(300) NOT NULL,
     event_type VARCHAR(100),
     booth_number VARCHAR(50),
@@ -111,6 +150,8 @@ CREATE TABLE events (
     capacity INTEGER,
     current_participants INTEGER DEFAULT 0,
     image_url VARCHAR(1024),
+    unsplash_image_url VARCHAR(1024),
+    has_custom_image BOOLEAN DEFAULT FALSE,
     additional_images JSONB DEFAULT '[]'::JSONB,
     pdf_url VARCHAR(1024),
     ocr_data JSONB,
@@ -128,7 +169,7 @@ CREATE TABLE events (
 );
 
 CREATE INDEX idx_events_company_id ON events (company_id);
-CREATE INDEX idx_events_venue_id ON events (venue_id);
+CREATE INDEX idx_events_exhibition_id ON events (exhibition_id);
 CREATE INDEX idx_events_start_date ON events (start_date);
 CREATE INDEX idx_events_event_type ON events (event_type);
 CREATE INDEX idx_events_is_active ON events (is_active);
@@ -136,8 +177,10 @@ CREATE INDEX idx_events_is_featured ON events (is_featured);
 
 COMMENT ON TABLE events IS '이벤트/프로그램 정보 테이블';
 COMMENT ON COLUMN events.categories IS '카테고리 목록 (JSONB)';
+COMMENT ON COLUMN events.unsplash_image_url IS 'Unsplash에서 자동 생성된 이미지 URL';
+COMMENT ON COLUMN events.has_custom_image IS '주최측이 업로드한 이미지 여부';
 
--- 5. Event Managers -------------------------------------------------------
+-- 6. Event Managers -------------------------------------------------------
 CREATE TABLE event_managers (
     id SERIAL PRIMARY KEY,
     event_id INTEGER NOT NULL REFERENCES events (id) ON DELETE CASCADE,
@@ -160,7 +203,7 @@ CREATE INDEX idx_event_managers_primary ON event_managers (is_primary);
 
 COMMENT ON TABLE event_managers IS '이벤트 담당자 테이블';
 
--- 6. Tags & association ---------------------------------------------------
+-- 7. Tags & association ---------------------------------------------------
 CREATE TABLE tags (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) UNIQUE NOT NULL,
@@ -178,7 +221,7 @@ CREATE TABLE event_tags (
 COMMENT ON TABLE tags IS '태그 마스터';
 COMMENT ON TABLE event_tags IS '이벤트-태그 매핑';
 
--- 7. Surveys --------------------------------------------------------------
+-- 8. Surveys --------------------------------------------------------------
 CREATE TABLE surveys (
     id SERIAL PRIMARY KEY,
     event_id INTEGER NOT NULL REFERENCES events (id) ON DELETE CASCADE,
@@ -207,7 +250,7 @@ CREATE INDEX idx_surveys_start_date ON surveys (start_date);
 
 COMMENT ON TABLE surveys IS '설문조사 테이블';
 
--- 8. Survey Responses -----------------------------------------------------
+-- 9. Survey Responses -----------------------------------------------------
 CREATE TABLE survey_responses (
     id SERIAL PRIMARY KEY,
     survey_id INTEGER NOT NULL REFERENCES surveys (id) ON DELETE CASCADE,
@@ -233,7 +276,7 @@ CREATE INDEX idx_responses_booth ON survey_responses (booth_number);
 
 COMMENT ON TABLE survey_responses IS '설문 응답 테이블';
 
--- 9. Event Likes ---------------------------------------------------------
+-- 10. Event Likes --------------------------------------------------------
 CREATE TABLE event_likes (
     id SERIAL PRIMARY KEY,
     event_id INTEGER NOT NULL REFERENCES events (id) ON DELETE CASCADE,
@@ -248,7 +291,7 @@ CREATE INDEX idx_event_likes_session_id ON event_likes (session_id);
 
 COMMENT ON TABLE event_likes IS '이벤트 좋아요';
 
--- 10. Event Views --------------------------------------------------------
+-- 11. Event Views --------------------------------------------------------
 CREATE TABLE event_views (
     id SERIAL PRIMARY KEY,
     event_id INTEGER NOT NULL REFERENCES events (id) ON DELETE CASCADE,
@@ -265,7 +308,7 @@ CREATE INDEX idx_event_views_viewed_at ON event_views (viewed_at);
 
 COMMENT ON TABLE event_views IS '이벤트 조회 로그';
 
--- 11. System Logs (optional) ---------------------------------------------
+-- 12. System Logs (optional) ---------------------------------------------
 CREATE TABLE system_logs (
     id SERIAL PRIMARY KEY,
     log_level VARCHAR(20) NOT NULL,
@@ -288,7 +331,7 @@ CREATE INDEX idx_system_logs_user ON system_logs (user_id);
 
 COMMENT ON TABLE system_logs IS '시스템 로그 테이블';
 
--- 12. Updated_at trigger --------------------------------------------------
+-- 13. Updated_at trigger --------------------------------------------------
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -307,6 +350,10 @@ CREATE TRIGGER trg_companies_updated
     BEFORE UPDATE ON companies
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+CREATE TRIGGER trg_exhibitions_updated
+    BEFORE UPDATE ON exhibitions
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
 CREATE TRIGGER trg_events_updated
     BEFORE UPDATE ON events
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -323,7 +370,7 @@ CREATE TRIGGER trg_tags_updated
     BEFORE UPDATE ON tags
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- 13. Completion summary --------------------------------------------------
+-- 14. Completion summary --------------------------------------------------
 SELECT 'Database schema created successfully!' AS status;
 SELECT 'Total tables: ' || COUNT(*) AS table_count
 FROM information_schema.tables

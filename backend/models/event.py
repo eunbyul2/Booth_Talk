@@ -23,7 +23,7 @@ class Event(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
-    venue_id = Column(Integer, ForeignKey("venues.id", ondelete="SET NULL"), index=True)
+    exhibition_id = Column(Integer, ForeignKey("exhibitions.id", ondelete="CASCADE"), nullable=False, index=True)
 
     event_name = Column(String(300), nullable=False)
     event_type = Column(String(100), index=True)
@@ -69,7 +69,7 @@ class Event(Base):
     )
 
     company = relationship("Company", back_populates="events")
-    venue = relationship("Venue", back_populates="events")
+    exhibition = relationship("Exhibition", back_populates="events")
     managers = relationship("EventManager", back_populates="event", cascade="all, delete-orphan")
     surveys = relationship("Survey", back_populates="event", cascade="all, delete-orphan")
     likes = relationship("EventLike", back_populates="event", cascade="all, delete-orphan")
