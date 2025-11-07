@@ -97,6 +97,12 @@
   color: rgba(210, 218, 255, 0.85);
 }
 
+.visitor-home-body {
+  background: var(--chrono-bg);
+  color: rgba(238, 240, 255, 0.92);
+  transition: background 0.4s ease;
+}
+
 .visitor-home {
   min-height: 100vh;
   background: var(--chrono-bg);
@@ -562,7 +568,7 @@
 
 .map-list-layout {
   display: grid;
-  grid-template-columns: minmax(260px, 1fr) minmax(320px, 1.4fr);
+  grid-template-columns: minmax(260px, 1fr) minmax(360px, 1.35fr);
   gap: clamp(1.2rem, 3vw, 2.4rem);
   align-items: stretch;
 }
@@ -663,13 +669,104 @@
 }
 
 .home-exhibition-list {
-  display: flex;
-  flex-direction: column;
+  display: grid;
   gap: clamp(1rem, 2.5vw, 1.6rem);
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  align-items: stretch;
+}
+.list-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.list-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(18, 14, 42, 0.45);
+  color: rgba(230, 235, 255, 0.88);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.venue-chip-row {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.2rem;
+  margin-top: -0.4rem;
+  margin-right: -0.6rem;
+  padding-right: 0.6rem;
+}
+
+.venue-chip-row::-webkit-scrollbar {
+  height: 4px;
+}
+
+.venue-chip-row::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+}
+
+.venue-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(26, 20, 58, 0.45);
+  color: rgba(230, 235, 255, 0.88);
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.venue-chip:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.26);
+  background: rgba(30, 24, 66, 0.65);
+}
+
+.venue-chip.selected {
+  border-color: rgba(255, 107, 107, 0.65);
+  background: rgba(255, 107, 107, 0.18);
+  box-shadow: 0 10px 24px rgba(255, 107, 107, 0.25);
+}
+
+.venue-chip-name {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.venue-chip-meta,
+.venue-chip-distance {
+  color: rgba(220, 225, 255, 0.7);
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.venue-chip-empty {
+  flex: 1 1 auto;
+  min-width: 100%;
+  padding: 0.6rem 0.8rem;
+  border-radius: clamp(12px, 2vw, 16px);
+  border: 1px dashed rgba(255, 255, 255, 0.16);
+  color: rgba(200, 210, 255, 0.7);
+  font-size: 0.8rem;
+  text-align: center;
+  background: rgba(26, 20, 58, 0.35);
 }
 
 .home-exhibition-card {
-  display: block;
+  display: flex;
+  flex-direction: column;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: clamp(14px, 2.5vw, 20px);
@@ -678,6 +775,7 @@
   cursor: pointer;
   backdrop-filter: blur(16px);
   box-shadow: 0 12px 34px rgba(8, 4, 20, 0.35);
+  height: 100%;
 }
 
 .home-exhibition-card.is-hovered {
@@ -691,6 +789,7 @@
   flex-direction: column;
   gap: 0.85rem;
   color: rgba(235, 240, 255, 0.9);
+  flex: 1;
 }
 
 .home-exhibition-header {
@@ -899,6 +998,24 @@
   .quick-link-btn {
     width: 100%;
     justify-content: center;
+  }
+
+  .list-controls {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.5rem;
+  }
+
+  .list-count {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .venue-chip-row {
+    flex-wrap: wrap;
+    overflow-x: visible;
+    margin-right: 0;
+    padding-right: 0;
   }
 
   .footer-content {

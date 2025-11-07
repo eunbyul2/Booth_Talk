@@ -19,7 +19,7 @@ class Venue(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    events = relationship("Event", back_populates="venue")
+    exhibitions = relationship("Exhibition", back_populates="venue", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<Venue(id={self.id}, name='{self.venue_name}', location='{self.location}')>"

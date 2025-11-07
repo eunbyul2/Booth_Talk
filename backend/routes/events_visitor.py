@@ -14,7 +14,7 @@ from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import Company, Event, Survey, SurveyResponse as SurveyResponseModel, Venue
+from models import Company, Event, Exhibition, Survey, SurveyResponse as SurveyResponseModel, Venue
 
 router = APIRouter()
 
@@ -73,6 +73,15 @@ class EventResponse(BaseModel):
     image_url: Optional[str] = None
     latitude: Optional[str] = None
     longitude: Optional[str] = None
+    exhibition_id: int
+    exhibition_title: str
+    exhibition_subtitle: Optional[str] = None
+    exhibition_start_date: date
+    exhibition_end_date: date
+    exhibition_hall: Optional[str] = None
+    exhibition_category: Optional[str] = None
+    exhibition_classification: Optional[str] = None
+    exhibition_sector: Optional[str] = None
     venue_id: Optional[int] = None
     venue_name: Optional[str] = None
     venue_location: Optional[str] = None
@@ -180,6 +189,7 @@ def calculate_event_info(event: Event, current_time: datetime) -> dict:
 def build_event_response(
     event: Event,
     company: Company,
+    exhibition: Exhibition,
     current_time: datetime,
     venue: Optional[Venue]
 ) -> EventResponse:
@@ -213,6 +223,15 @@ def build_event_response(
         image_url=get_valid_image_url(event),
         latitude=event.latitude,
         longitude=event.longitude,
+        exhibition_id=exhibition.id,
+        exhibition_title=exhibition.title,
+        exhibition_subtitle=exhibition.subtitle,
+        exhibition_start_date=exhibition.start_date,
+        exhibition_end_date=exhibition.end_date,
+        exhibition_hall=exhibition.hall_location,
+        exhibition_category=exhibition.category,
+        exhibition_classification=exhibition.classification,
+        exhibition_sector=exhibition.sector,
         venue_id=venue.id if venue else None,
         venue_name=venue.venue_name if venue else None,
         venue_location=venue.location if venue else None,
@@ -259,9 +278,13 @@ async def search_available_events(
         target_datetime = datetime.now()
     
     # 기본 쿼리
-    query = db.query(Event, Company, Venue).join(
+    query = db.query(Event, Company, Exhibition, Venue).join(
         Company, Event.company_id == Company.id
-    ).outerjoin(Venue, Event.venue_id == Venue.id)
+    ).join(
+        Exhibition, Event.exhibition_id == Exhibition.id
+    ).join(
+        Venue, Exhibition.venue_id == Venue.id
+    )
 
     # 날짜 범위 필터 (종료되지 않은 이벤트만)
     query = query.filter(or_(Event.end_date.is_(None), Event.end_date >= target_datetime.date()))
@@ -285,13 +308,14 @@ async def search_available_events(
         query = query.filter(
             or_(
                 Event.location.ilike(like_pattern),
+                Exhibition.hall_location.ilike(like_pattern),
                 Venue.venue_name.ilike(like_pattern),
                 Venue.location.ilike(like_pattern),
             )
         )
 
     if venue_id:
-        query = query.filter(Event.venue_id == venue_id)
+        query = query.filter(Exhibition.venue_id == venue_id)
 
     if venue_name:
         venue_like = f"%{venue_name}%"
@@ -334,8 +358,8 @@ async def search_available_events(
     available_count = 0
     upcoming_count = 0
 
-    for event, company, venue in results:
-        response = build_event_response(event, company, target_datetime, venue)
+    for event, company, exhibition, venue in results:
+        response = build_event_response(event, company, exhibition, target_datetime, venue)
 
         if response.is_available_now:
             available_count += 1
@@ -377,14 +401,18 @@ async def get_event_detail(
     """
     이벤트 상세 정보 조회
     """
-    result = db.query(Event, Company, Venue).join(
+    result = db.query(Event, Company, Exhibition, Venue).join(
         Company, Event.company_id == Company.id
-    ).outerjoin(Venue, Event.venue_id == Venue.id).filter(Event.id == event_id).first()
+    ).join(
+        Exhibition, Event.exhibition_id == Exhibition.id
+    ).join(
+        Venue, Exhibition.venue_id == Venue.id
+    ).filter(Event.id == event_id).first()
     
     if not result:
         raise HTTPException(status_code=404, detail="이벤트를 찾을 수 없습니다")
     
-    event, company, venue = result
+    event, company, exhibition, venue = result
     
     # 방문 시간 설정
     if visit_time:
@@ -392,7 +420,7 @@ async def get_event_detail(
     else:
         target_datetime = datetime.now()
     
-    return build_event_response(event, company, target_datetime, venue)
+    return build_event_response(event, company, exhibition, target_datetime, venue)
 
 
 @router.get("/visitor/surveys/{survey_id}", response_model=SurveyDetailResponse)
