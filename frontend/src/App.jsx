@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { ThemeProvider } from "./context/ThemeContext.jsx";
 
 // Company Pages
 import CompanyLogin from "./pages/company/CompanyLogin.jsx"; // ✅ 기업 로그인 활성화
@@ -21,8 +22,9 @@ import CreateCompanyAccount from "./pages/admin/CreateCompanyAccount.jsx";
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
+    <ThemeProvider>
+      <BrowserRouter>
+        <Routes>
         {/* Home */}
         <Route path="/" element={<Navigate to="/visitor" />} />
 
@@ -51,7 +53,8 @@ function App() {
           element={<CreateCompanyAccount />}
         />
       </Routes>
-    </BrowserRouter>
+      </BrowserRouter>
+    </ThemeProvider>
   );
 }
 

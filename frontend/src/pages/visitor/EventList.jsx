@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Search, Calendar, MapPin, Clock, ChevronRight } from "lucide-react";
+import FloatingButtons from "../../components/FloatingButtons";
 import "./EventList.css";
 import { getVisitorEvents, getVisitorEventDetail } from "../../apiClient";
 
@@ -278,6 +279,9 @@ export default function EventList() {
           </div>
         </div>
       </div>
+
+      {/* Floating Buttons */}
+      <FloatingButtons showMapButton={false} />
     </div>
   );
 }

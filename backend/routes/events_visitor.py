@@ -15,12 +15,13 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from models import Company, Event, Survey, SurveyResponse as SurveyResponseModel, Venue
+from services.unsplash_service import get_unsplash_service
 
 router = APIRouter()
 
 
 # Helper Functions
-def get_valid_image_url(event) -> Optional[str]:
+async def get_valid_image_url(event, db: Session) -> Optional[str]:
     """
     이미지 URL을 반환하되, placeholder.com이나 via.placeholder.com 같은
     외부 의존성 URL은 None으로 반환하여 프론트에서 fallback 사용
@@ -28,7 +29,7 @@ def get_valid_image_url(event) -> Optional[str]:
     우선순위:
     1) has_custom_image=True인 커스텀 이미지 (단, placeholder 제외)
     2) Unsplash 자동 생성 이미지
-    3) None (프론트에서 fallback)
+    3) 이미지 없으면 즉시 Unsplash에서 생성하여 저장
     """
     # 1) 커스텀 이미지 우선 (placeholder 제외)
     if event.has_custom_image and event.image_url:
@@ -44,7 +45,25 @@ def get_valid_image_url(event) -> Optional[str]:
     if event.image_url and not ("placeholder.com" in event.image_url or "placehold.co" in event.image_url):
         return event.image_url
 
-    # 4) 모든 조건 실패 시 None 반환
+    # 4) 이미지가 없으면 즉시 Unsplash에서 생성
+    try:
+        unsplash_service = get_unsplash_service()
+        image_data = await unsplash_service.get_event_image(
+            event_name=event.event_name,
+            description=event.description or "",
+            tags=event.categories if event.categories else [],
+            orientation="landscape"
+        )
+
+        if image_data and image_data.get("url_regular"):
+            # DB에 저장
+            event.unsplash_image_url = image_data["url_regular"]
+            db.commit()
+            return image_data["url_regular"]
+    except Exception as e:
+        print(f"Unsplash 이미지 생성 실패 (Event ID: {event.id}): {str(e)}")
+
+    # 5) 모든 시도 실패 시 None 반환
     return None
 
 
@@ -177,11 +196,12 @@ def calculate_event_info(event: Event, current_time: datetime) -> dict:
     }
 
 
-def build_event_response(
+async def build_event_response(
     event: Event,
     company: Company,
     current_time: datetime,
-    venue: Optional[Venue]
+    venue: Optional[Venue],
+    db: Session
 ) -> EventResponse:
     event_info = calculate_event_info(event, current_time)
     active_survey = next((survey for survey in event.surveys if survey.is_active), None)
@@ -210,7 +230,7 @@ def build_event_response(
         description=event.description,
         booth_number=event.booth_number,
         # 이미지 우선순위: 1) 주최측 커스텀 이미지, 2) Unsplash 자동 생성 이미지, 3) None
-        image_url=get_valid_image_url(event),
+        image_url=await get_valid_image_url(event, db),
         latitude=event.latitude,
         longitude=event.longitude,
         venue_id=venue.id if venue else None,
@@ -314,7 +334,7 @@ async def search_available_events(
     upcoming_count = 0
 
     for event, company, venue in results:
-        response = build_event_response(event, company, target_datetime, venue)
+        response = await build_event_response(event, company, target_datetime, venue, db)
 
         if response.is_available_now:
             available_count += 1
@@ -368,8 +388,8 @@ async def get_event_detail(
         target_datetime = datetime.strptime(visit_time, "%Y-%m-%d %H:%M")
     else:
         target_datetime = datetime.now()
-    
-    return build_event_response(event, company, target_datetime, venue)
+
+    return await build_event_response(event, company, target_datetime, venue, db)
 
 
 @router.get("/visitor/surveys/{survey_id}", response_model=SurveyDetailResponse)

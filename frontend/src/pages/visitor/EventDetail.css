@@ -405,6 +405,115 @@
   }
 }
 
+/* Light Mode Styles */
+[data-theme="light"] .event-detail-page {
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  color: #1A202C;
+}
+
+[data-theme="light"] .detail-header {
+  background: rgba(255, 255, 255, 0.9);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .btn-back {
+  color: #1A202C;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .btn-back:hover {
+  background: rgba(255, 255, 255, 1);
+  color: #2D3748;
+}
+
+[data-theme="light"] .btn-icon {
+  color: #4A5568;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .btn-icon:hover,
+[data-theme="light"] .btn-icon.active {
+  background: rgba(102, 126, 234, 0.1);
+  color: #667eea;
+}
+
+[data-theme="light"] .detail-content {
+  background: transparent;
+}
+
+[data-theme="light"] .event-info-section {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .booth-badge {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+[data-theme="light"] .event-title {
+  color: #1A202C;
+}
+
+[data-theme="light"] .event-company {
+  color: #4A5568;
+}
+
+[data-theme="light"] .info-item {
+  background: rgba(102, 126, 234, 0.05);
+  border: 1px solid rgba(102, 126, 234, 0.1);
+}
+
+[data-theme="light"] .info-icon {
+  color: #667eea;
+  background: transparent;
+  border: none;
+}
+
+[data-theme="light"] .info-label {
+  color: #718096;
+}
+
+[data-theme="light"] .info-value {
+  color: #1A202C;
+}
+
+[data-theme="light"] .section-box {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .section-box h3 {
+  color: #1A202C;
+}
+
+[data-theme="light"] .section-box p {
+  color: #4A5568;
+}
+
+[data-theme="light"] .image-placeholder {
+  background: rgba(102, 126, 234, 0.1);
+  color: #667eea;
+}
+
+[data-theme="light"] .image-overlay {
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.7), transparent);
+  color: white;
+}
+
+[data-theme="light"] .btn-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+}
+
+[data-theme="light"] .btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .detail-header::before,
   .detail-content,

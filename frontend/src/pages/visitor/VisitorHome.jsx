@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { MapPin, Calendar, Search } from "lucide-react";
+import { MapPin, Calendar, Search, X } from "lucide-react";
+import FloatingButtons from "../../components/FloatingButtons";
+import MatrixInfinity from "../../components/MatrixInfinity";
 import "./VisitorHome.css";
 import { loadGoogleMaps } from "../../utils/loadGoogleMaps";
 import { getVisitorEvents } from "../../apiClient";
@@ -22,6 +24,7 @@ export default function VisitorHome() {
   const [sortOrder, setSortOrder] = useState("date_asc");
   const [searchQuery, setSearchQuery] = useState("");
   const [locationNotice, setLocationNotice] = useState(null);
+  const [isMapDrawerOpen, setIsMapDrawerOpen] = useState(false);
   const [heroGlow, setHeroGlow] = useState({
     x: 50,
     y: 50,
@@ -213,21 +216,28 @@ export default function VisitorHome() {
         icon: {
           url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
             <svg width="${size * 2}" height="${
-            size * 2
+            size * 2 + 8
           }" xmlns="http://www.w3.org/2000/svg">
               <defs>
-                <clipPath id="circle-${ex.id}">
-                  <circle cx="${size}" cy="${size}" r="${size}"/>
-                </clipPath>
+                <filter id="shadow-${ex.id}">
+                  <feGaussianBlur in="SourceAlpha" stdDeviation="1.5"/>
+                  <feOffset dx="0" dy="1" result="offsetblur"/>
+                  <feComponentTransfer>
+                    <feFuncA type="linear" slope="0.3"/>
+                  </feComponentTransfer>
+                  <feMerge>
+                    <feMergeNode/>
+                    <feMergeNode in="SourceGraphic"/>
+                  </feMerge>
+                </filter>
               </defs>
-              <circle cx="${size}" cy="${size}" r="${size}" fill="white"/>
-              <image href="${ex.image}" width="${size * 2}" height="${
-            size * 2
-          }" clip-path="url(#circle-${ex.id})"/>
-              <circle cx="${size}" cy="${size}" r="${size}" fill="none" stroke="#FF6B6B" stroke-width="3"/>
+              <circle cx="${size}" cy="${size}" r="${size + 1}" fill="rgba(255, 107, 107, 0.2)" filter="url(#shadow-${ex.id})"/>
+              <circle cx="${size}" cy="${size}" r="${size}" fill="#FF6B6B"/>
+              <circle cx="${size}" cy="${size}" r="${size - 3}" fill="white"/>
+              <circle cx="${size}" cy="${size}" r="${size - 6}" fill="#FF6B6B"/>
             </svg>
           `)}`,
-          scaledSize: new maps.Size(size * 2, size * 2),
+          scaledSize: new maps.Size(size * 2, size * 2 + 8),
           anchor: new maps.Point(size, size),
         },
         zIndex: 100,
@@ -318,23 +328,28 @@ export default function VisitorHome() {
       marker.setIcon({
         url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
           <svg width="${size * 2}" height="${
-          size * 2
+          size * 2 + 8
         }" xmlns="http://www.w3.org/2000/svg">
             <defs>
-              <clipPath id="circle-${exhibitionId}">
-                <circle cx="${size}" cy="${size}" r="${size}"/>
-              </clipPath>
+              <filter id="shadow-${exhibitionId}">
+                <feGaussianBlur in="SourceAlpha" stdDeviation="1.5"/>
+                <feOffset dx="0" dy="1" result="offsetblur"/>
+                <feComponentTransfer>
+                  <feFuncA type="linear" slope="0.3"/>
+                </feComponentTransfer>
+                <feMerge>
+                  <feMergeNode/>
+                  <feMergeNode in="SourceGraphic"/>
+                </feMerge>
+              </filter>
             </defs>
-            <circle cx="${size}" cy="${size}" r="${size}" fill="white"/>
-            <image href="${exhibition.image}" width="${size * 2}" height="${
-          size * 2
-        }" clip-path="url(#circle-${exhibitionId})"/>
-            <circle cx="${size}" cy="${size}" r="${size}" fill="none" stroke="#FF6B6B" stroke-width="${
-          hoveredExhibitionId === exhibitionId ? "4" : "3"
-        }"/>
+            <circle cx="${size}" cy="${size}" r="${size + 1}" fill="rgba(255, 107, 107, 0.2)" filter="url(#shadow-${exhibitionId})"/>
+            <circle cx="${size}" cy="${size}" r="${size}" fill="#FF6B6B"/>
+            <circle cx="${size}" cy="${size}" r="${size - 3}" fill="white"/>
+            <circle cx="${size}" cy="${size}" r="${size - 6}" fill="#FF6B6B"/>
           </svg>
         `)}`,
-        scaledSize: new maps.Size(size * 2, size * 2),
+        scaledSize: new maps.Size(size * 2, size * 2 + 8),
         anchor: new maps.Point(size, size),
       });
       marker.setZIndex(hoveredExhibitionId === exhibitionId ? 1000 : 100);
@@ -387,6 +402,30 @@ export default function VisitorHome() {
 
   return (
     <div className="visitor-home">
+      {/* Matrix Infinity Background Decoration */}
+      <MatrixInfinity />
+
+      {/* Map Drawer - 좌측 사이드바 */}
+      <div className={`map-drawer ${isMapDrawerOpen ? 'open' : ''}`}>
+        <div className="map-drawer-header">
+          <h3>내 주변 전시장 지도</h3>
+          <button onClick={() => setIsMapDrawerOpen(false)} className="btn-drawer-close">
+            <X size={24} />
+          </button>
+        </div>
+        <div className="map-drawer-content">
+          <p className="map-drawer-subtitle">
+            브라우저 위치 권한을 허용하면 내 위치를 기준으로 표시됩니다
+          </p>
+          <div className="map-frame">
+            <div ref={mapRef} className="map-frame-inner" />
+          </div>
+          {locationNotice && (
+            <p className="map-notice">{locationNotice}</p>
+          )}
+        </div>
+      </div>
+
       {/* Hero Section */}
       <div
         className="hero-section"
@@ -467,25 +506,10 @@ export default function VisitorHome() {
         </div>
       </div>
 
-      {/* Map + Upcoming Section */}
+      {/* Upcoming Events Section */}
       <div className="venues-section">
         <div className="container">
-          <div className="map-list-layout">
-            <div className="map-card">
-              <h2 className="section-title section-title--tight">
-                내 주변 전시장 지도
-              </h2>
-              <p className="section-subtitle section-subtitle--muted">
-                브라우저 위치 권한을 허용하면 내 위치를 기준으로 표시됩니다
-              </p>
-              <div className="map-frame">
-                <div ref={mapRef} className="map-frame-inner" />
-              </div>
-              {locationNotice && (
-                <p className="map-notice">{locationNotice}</p>
-              )}
-            </div>
-
+          <div className="events-list-section">
             <div className="list-card">
               <div className="list-header">
                 <div>
@@ -584,20 +608,11 @@ export default function VisitorHome() {
         </div>
       </div>
 
-      {/* Footer */}
-      <footer className="visitor-footer">
-        <div className="container">
-          <div className="footer-content">
-            <div className="footer-logo">
-              <span className="logo-icon">🎪</span>
-              <span>전시회 플랫폼</span>
-            </div>
-            <div className="footer-links">
-              <a href="/admin/login">관리자</a>
-            </div>
-          </div>
-        </div>
-      </footer>
+      {/* Floating Buttons */}
+      <FloatingButtons
+        showMapButton={true}
+        onMapOpen={() => setIsMapDrawerOpen(true)}
+      />
     </div>
   );
 }
