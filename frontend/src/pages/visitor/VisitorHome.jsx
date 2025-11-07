@@ -692,9 +692,9 @@ export default function VisitorHome() {
                     value={sortOrder}
                     onChange={(e) => setSortOrder(e.target.value)}
                   >
-                    <option value="distance">가까운 순</option>
-                    <option value="date_asc">시간 빠른 순</option>
-                    <option value="date_desc">시간 느린 순</option>
+                    <option value="distance">거리 가까운 순</option>
+                    <option value="date_asc">일정 빠른 순</option>
+                    <option value="date_desc">일정 느린 순</option>
                     <option value="location">장소별</option>
                   </select>
                 </div>
@@ -702,8 +702,11 @@ export default function VisitorHome() {
 
               <div className="home-exhibition-list">
                 {loading && (
-                  <div className="home-message home-message--loading">
-                    이벤트 정보를 불러오는 중입니다...
+                  <div className="home-list-loading" role="status">
+                    <div className="home-list-spinner" aria-hidden="true" />
+                    <p className="home-list-loadingText">
+                      전시장 정보를 불러오는 중입니다…
+                    </p>
                   </div>
                 )}
 

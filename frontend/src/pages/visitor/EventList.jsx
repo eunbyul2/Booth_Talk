@@ -27,6 +27,7 @@ export default function EventList() {
   const [error, setError] = useState(null);
   const [totalCount, setTotalCount] = useState(0);
   const [filterInfo, setFilterInfo] = useState(null);
+  const [venueSortOrder, setVenueSortOrder] = useState("date_asc");
 
   // URL 파라미터 변경 시 검색어 업데이트
   useEffect(() => {
@@ -252,26 +253,20 @@ export default function EventList() {
       }
     });
 
-    return Array.from(map.values())
-      .map((group) => ({
-        id: group.id,
-        name: group.name,
-        description: group.description || "등록된 설명이 없습니다.",
-        startDate: group.startDate,
-        endDate: group.endDate,
-        image: group.image,
-        venueName: group.venueName,
-        hallInfo: group.hallInfo,
-        primaryEventId: group.primaryEventId,
-        venueId: group.venueId,
-        companyCount: group.companyNames.size,
-        organizers: Array.from(group.companyNames),
-      }))
-      .sort((a, b) => {
-        const dateA = a.startDate ? new Date(a.startDate) : new Date();
-        const dateB = b.startDate ? new Date(b.startDate) : new Date();
-        return dateA - dateB;
-      });
+    return Array.from(map.values()).map((group) => ({
+      id: group.id,
+      name: group.name,
+      description: group.description || "등록된 설명이 없습니다.",
+      startDate: group.startDate,
+      endDate: group.endDate,
+      image: group.image,
+      venueName: group.venueName,
+      hallInfo: group.hallInfo,
+      primaryEventId: group.primaryEventId,
+      venueId: group.venueId,
+      companyCount: group.companyNames.size,
+      organizers: Array.from(group.companyNames),
+    }));
   }, [
     filteredEvents,
     isVenueView,
@@ -279,6 +274,27 @@ export default function EventList() {
     venueNameParam,
     venueIdParam,
   ]);
+
+  const sortedVenueExhibitions = useMemo(() => {
+    const list = [...venueExhibitions];
+
+    list.sort((a, b) => {
+      const dateA = a.startDate
+        ? new Date(a.startDate)
+        : new Date(8640000000000000);
+      const dateB = b.startDate
+        ? new Date(b.startDate)
+        : new Date(8640000000000000);
+
+      if (venueSortOrder === "date_desc") {
+        return dateB - dateA;
+      }
+
+      return dateA - dateB;
+    });
+
+    return list;
+  }, [venueExhibitions, venueSortOrder]);
 
   const handleExhibitionSelect = (exhibition) => {
     const params = new URLSearchParams();
@@ -356,11 +372,28 @@ export default function EventList() {
         {isVenueView && (
           <div className="venue-exhibitions-section">
             <h3 className="section-title">
-              {venueNameParam || "전시장"} 전시회 목록
+              {venueNameParam || "전시장"} 주최 행사 목록
             </h3>
             <p className="venue-exhibitions-info">
               총 {venueExhibitions.length}개의 전시회가 진행 중입니다.
             </p>
+
+            {venueExhibitions.length > 0 && (
+              <div className="venue-exhibitions-toolbar">
+                <label htmlFor="venue-sort" className="venue-exhibitions-label">
+                  정렬
+                </label>
+                <select
+                  id="venue-sort"
+                  className="venue-exhibitions-select"
+                  value={venueSortOrder}
+                  onChange={(event) => setVenueSortOrder(event.target.value)}
+                >
+                  <option value="date_asc">날짜 빠른 순</option>
+                  <option value="date_desc">날짜 늦은 순</option>
+                </select>
+              </div>
+            )}
 
             {venueExhibitions.length === 0 && !loading && (
               <div className="empty-box">
@@ -369,7 +402,7 @@ export default function EventList() {
             )}
 
             <div className="venue-exhibitions-grid">
-              {venueExhibitions.map((exhibition) => (
+              {sortedVenueExhibitions.map((exhibition) => (
                 <button
                   type="button"
                   key={exhibition.id}

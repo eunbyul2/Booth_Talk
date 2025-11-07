@@ -260,6 +260,37 @@
   margin-bottom: 16px;
 }
 
+.venue-exhibitions-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+  font-size: 13px;
+  color: rgba(200, 210, 255, 0.7);
+}
+
+.venue-exhibitions-label {
+  font-weight: 500;
+}
+
+.venue-exhibitions-select {
+  appearance: none;
+  min-width: 140px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(238, 240, 255, 0.92);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.venue-exhibitions-select:focus {
+  border-color: rgba(125, 90, 255, 0.5);
+  box-shadow: 0 0 0 3px rgba(125, 90, 255, 0.2);
+}
+
 .venue-exhibitions-grid {
   display: grid;
   gap: 16px;
