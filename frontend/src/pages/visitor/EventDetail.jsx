@@ -10,6 +10,7 @@ import {
   Heart,
 } from "lucide-react";
 import { getVisitorEventDetail } from "../../apiClient";
+import FloatingButtons from "../../components/FloatingButtons";
 import "./EventDetail.css";
 
 export default function EventDetail() {
@@ -94,7 +95,7 @@ export default function EventDetail() {
         <div className="container">
           <button
             className="btn-back"
-            onClick={() => navigate("/visitor/events")}
+            onClick={() => navigate(-1)}
           >
             <ArrowLeft size={20} />
             목록으로
@@ -222,6 +223,9 @@ export default function EventDetail() {
           </div>
         </div>
       </div>
+
+      {/* Floating Buttons */}
+      <FloatingButtons showMapButton={false} />
     </div>
   );
 }

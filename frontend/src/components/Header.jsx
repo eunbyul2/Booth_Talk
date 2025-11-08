@@ -1,9 +1,11 @@
 import { Link, useNavigate } from "react-router-dom";
-import { LogOut, User } from "lucide-react";
+import { LogOut, User, Sun, Moon } from "lucide-react";
+import { useTheme } from "../context/ThemeContext";
 import "./Header.css";
 
 export default function Header({ userType, userName }) {
   const navigate = useNavigate();
+  const { theme, toggleTheme, isDark } = useTheme();
 
   const handleLogout = () => {
     if (userType === "company") {
@@ -32,7 +34,12 @@ export default function Header({ userType, userName }) {
           <span className="logo-text">전시회 플랫폼</span>
         </Link>
 
-        {userName && (
+        <div className="header-actions">
+          <button onClick={toggleTheme} className="btn-theme-toggle" title={isDark ? "라이트 모드로 전환" : "다크 모드로 전환"}>
+            {isDark ? <Sun size={20} /> : <Moon size={20} />}
+          </button>
+
+          {userName && (
           <div className="header-user">
             <div className="user-info">
               <User size={20} />
@@ -43,7 +50,8 @@ export default function Header({ userType, userName }) {
               로그아웃
             </button>
           </div>
-        )}
+          )}
+        </div>
       </div>
     </header>
   );

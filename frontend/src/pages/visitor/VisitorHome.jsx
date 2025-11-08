@@ -1,11 +1,53 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { MapPin, Search } from "lucide-react";
+import { MapPin, Calendar, Search, X } from "lucide-react";
+import FloatingButtons from "../../components/FloatingButtons";
+import MatrixInfinity from "../../components/MatrixInfinity";
 import "./VisitorHome.css";
 import { loadGoogleMaps } from "../../utils/loadGoogleMaps";
 import { getVisitorEvents } from "../../apiClient";
 
 const DEFAULT_MAP_CENTER = { lat: 37.5665, lng: 126.978 };
+const FALLBACK_EVENT_IMAGE =
+  "https://images.unsplash.com/photo-1529333166437-7750a6dd5a70?auto=format&fit=crop&w=1400&q=80";
+
+const VENUE_COORDINATE_PRESETS = [
+  {
+    keywords: ["코엑스", "coex"],
+    lat: 37.512566,
+    lng: 127.059032,
+  },
+  {
+    keywords: ["킨텍스", "kintex"],
+    lat: 37.668777,
+    lng: 126.745642,
+  },
+  {
+    keywords: ["벡스코", "bexco"],
+    lat: 35.16836,
+    lng: 129.13704,
+  },
+  {
+    keywords: ["세텍", "setec"],
+    lat: 37.567358,
+    lng: 127.072551,
+  },
+  {
+    keywords: ["송도컨벤시아", "convensia", "songdo"],
+    lat: 37.386052,
+    lng: 126.643101,
+  },
+  {
+    keywords: ["at센터", "aT센터", "at center"],
+    lat: 37.468577,
+    lng: 127.03959,
+  },
+  {
+    keywords: ["부산엑스포", "busan expo", "exco", "대구엑스코"],
+    lat: 35.892769,
+    lng: 128.612705,
+  },
+];
 
 function toNumberOrNull(value) {
   if (value === null || value === undefined || value === "") {
@@ -13,6 +55,63 @@ function toNumberOrNull(value) {
   }
   const numeric = Number(value);
   return Number.isFinite(numeric) ? numeric : null;
+}
+
+function isMeaningfulImage(url) {
+  if (!url) return false;
+  const lowered = url.toLowerCase();
+  return !(
+    lowered.includes("placeholder.com") || lowered.includes("placehold.co")
+  );
+}
+
+function getPresetCoordinates(...candidates) {
+  const merged = candidates
+    .filter(Boolean)
+    .map((item) => item.toString().toLowerCase());
+
+  if (merged.length === 0) {
+    return null;
+  }
+
+  for (const preset of VENUE_COORDINATE_PRESETS) {
+    if (
+      preset.keywords.some((keyword) =>
+        merged.some((text) => text.includes(keyword))
+      )
+    ) {
+      return { lat: preset.lat, lng: preset.lng };
+    }
+  }
+
+  return null;
+}
+
+function estimateTravelMinutes(distanceKm) {
+  if (distanceKm === null || distanceKm === undefined) {
+    return null;
+  }
+  const walkingSpeedKmPerHour = 4.2;
+  const minutes = Math.round((distanceKm / walkingSpeedKmPerHour) * 60);
+  return Math.max(minutes, 1);
+}
+
+function formatEtaMinutes(minutes) {
+  if (minutes === null || minutes === undefined) {
+    return null;
+  }
+  if (minutes < 1) {
+    return "1분 미만";
+  }
+  if (minutes < 60) {
+    return `${minutes}분`;
+  }
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  if (rest === 0) {
+    return `${hours}시간`;
+  }
+  return `${hours}시간 ${rest}분`;
 }
 
 function transformEventsToExhibitions(eventList) {
@@ -53,6 +152,7 @@ function transformEventsToExhibitions(eventList) {
         eventCount: 0,
         companyIds: new Set(),
         eventNames: new Set(),
+        image: isMeaningfulImage(event.image_url) ? event.image_url : null,
       });
     }
 
@@ -98,6 +198,10 @@ function transformEventsToExhibitions(eventList) {
       group.venueName = event.venue_name;
     }
 
+    if (!group.image && isMeaningfulImage(event.image_url)) {
+      group.image = event.image_url;
+    }
+
     if (event.event_name) {
       group.eventNames.add(event.event_name);
     }
@@ -132,6 +236,16 @@ function transformEventsToExhibitions(eventList) {
         group.location?.trim() ||
         "전시장";
 
+      const presetCoords =
+        group.lat !== null && group.lng !== null
+          ? { lat: group.lat, lng: group.lng }
+          : getPresetCoordinates(
+              displayName,
+              group.hallInfo,
+              group.location,
+              group.venueName
+            );
+
       return {
         id: group.id,
         venueId: group.venueId,
@@ -141,12 +255,13 @@ function transformEventsToExhibitions(eventList) {
         location: group.location,
         hallInfo: group.hallInfo,
         venueName: group.venueName || displayName,
-        lat: group.lat,
-        lng: group.lng,
+        lat: presetCoords?.lat ?? group.lat,
+        lng: presetCoords?.lng ?? group.lng,
         startDate: group.startDate,
         endDate: group.endDate,
         eventCount:
           uniqueCompanyCount > 0 ? uniqueCompanyCount : group.eventCount,
+        image: group.image || FALLBACK_EVENT_IMAGE,
       };
     })
     .sort((a, b) => {
@@ -227,6 +342,7 @@ function formatDateRange(startStr, endStr) {
 export default function VisitorHome() {
   const navigate = useNavigate();
   const mapRef = useRef(null);
+  const mapCardRef = useRef(null);
   const exhibitionMarkersRef = useRef([]);
   const [events, setEvents] = useState([]);
   const [exhibitions, setExhibitions] = useState([]);
@@ -235,11 +351,12 @@ export default function VisitorHome() {
   const [mapInstance, setMapInstance] = useState(null);
   const [infoWindow, setInfoWindow] = useState(null);
   const [userPosition, setUserPosition] = useState(null);
-  const [locationNotice, setLocationNotice] = useState("");
+  const [locationNotice, setLocationNotice] = useState(null);
   const [hoveredExhibitionId, setHoveredExhibitionId] = useState(null);
   const [selectedVenueId, setSelectedVenueId] = useState("all");
   const [sortOrder, setSortOrder] = useState("distance");
   const [searchQuery, setSearchQuery] = useState("");
+  const [isMapDrawerOpen, setIsMapDrawerOpen] = useState(false);
   const [heroGlow, setHeroGlow] = useState({
     x: 50,
     y: 50,
@@ -416,8 +533,26 @@ export default function VisitorHome() {
     };
   }, []);
 
+  const exhibitionsWithDistance = useMemo(() => {
+    return exhibitions.map((exhibition) => {
+      const lat = toNumberOrNull(exhibition.lat);
+      const lng = toNumberOrNull(exhibition.lng);
+      const distanceKm =
+        userPosition && lat !== null && lng !== null
+          ? calculateDistanceKm(userPosition, { lat, lng })
+          : null;
+
+      return {
+        ...exhibition,
+        lat,
+        lng,
+        distanceKm,
+      };
+    });
+  }, [exhibitions, userPosition]);
+
   useEffect(() => {
-    if (!mapInstance || !infoWindow || exhibitions.length === 0) {
+    if (!mapInstance || !infoWindow || exhibitionsWithDistance.length === 0) {
       return;
     }
 
@@ -429,32 +564,64 @@ export default function VisitorHome() {
     exhibitionMarkersRef.current.forEach(({ marker }) => marker?.setMap(null));
     exhibitionMarkersRef.current = [];
 
-    const markers = exhibitions.map((ex) => {
+    const markerSize = 18;
+    const bounds = new maps.LatLngBounds();
+    let hasAnyMarker = false;
+
+    const markers = exhibitionsWithDistance.map((ex) => {
       if (typeof ex.lat !== "number" || typeof ex.lng !== "number") {
         return null;
       }
+
+      const size = markerSize;
+      const iconSvg = `
+        <svg width="${size * 2}" height="${
+        size * 2
+      }" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <clipPath id="circle-${ex.id}">
+              <circle cx="${size}" cy="${size}" r="${size}" />
+            </clipPath>
+            <radialGradient id="glow-${ex.id}" cx="50%" cy="50%" r="60%">
+              <stop offset="0%" stop-color="rgba(255,107,107,0.8)" />
+              <stop offset="100%" stop-color="rgba(125,90,255,0.1)" />
+            </radialGradient>
+          </defs>
+          <circle cx="${size}" cy="${size}" r="${size}" fill="url(#glow-${
+        ex.id
+      })" />
+          <circle cx="${size}" cy="${size}" r="${size - 1}" fill="white" />
+          <image href="${ex.image}" width="${size * 2}" height="${
+        size * 2
+      }" clip-path="url(#circle-${
+        ex.id
+      })" preserveAspectRatio="xMidYMid slice" />
+          <circle cx="${size}" cy="${size}" r="${
+        size - 1
+      }" fill="none" stroke="#FF6B6B" stroke-width="3" />
+        </svg>
+      `;
 
       const marker = new maps.Marker({
         position: { lat: ex.lat, lng: ex.lng },
         map: mapInstance,
         title: ex.name,
         icon: {
-          path: maps.SymbolPath.CIRCLE,
-          scale: 9,
-          fillColor: "#FF6B6B",
-          fillOpacity: 0.9,
-          strokeColor: "#ffffff",
-          strokeWeight: 2,
+          url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
+            iconSvg
+          )}`,
+          scaledSize: new maps.Size(size * 2, size * 2),
+          anchor: new maps.Point(size, size),
         },
         zIndex: 100,
       });
 
+      bounds.extend({ lat: ex.lat, lng: ex.lng });
+      hasAnyMarker = true;
+
       marker.addListener("click", () => {
-        const distanceKm =
-          userPosition && Number.isFinite(ex.lat) && Number.isFinite(ex.lng)
-            ? calculateDistanceKm(userPosition, { lat: ex.lat, lng: ex.lng })
-            : null;
-        const distanceText = formatDistance(distanceKm);
+        const distanceText = formatDistance(ex.distanceKm);
+        const etaText = formatEtaMinutes(estimateTravelMinutes(ex.distanceKm));
         const locationLine = [ex.venueName, ex.hallInfo]
           .filter(Boolean)
           .join(" · ");
@@ -497,7 +664,9 @@ export default function VisitorHome() {
               </div>
               ${
                 distanceText
-                  ? `<div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;"><span>🚶</span><span style="font-size: 13px; color: #666;">내 위치로부터 ${distanceText}</span></div>`
+                  ? `<div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;"><span>🚶</span><span style="font-size: 13px; color: #666;">내 위치로부터 ${distanceText}${
+                      etaText ? ` · ${etaText}` : ""
+                    }</span></div>`
                   : ""
               }
             </div>
@@ -522,6 +691,17 @@ export default function VisitorHome() {
 
     exhibitionMarkersRef.current = markers.filter(Boolean);
 
+    if (hasAnyMarker) {
+      if (userPosition) {
+        bounds.extend(userPosition);
+      }
+      try {
+        mapInstance.fitBounds(bounds);
+      } catch (err) {
+        console.warn("Failed to fit bounds", err);
+      }
+    }
+
     return () => {
       markers.forEach((entry) => {
         if (entry?.marker) {
@@ -529,7 +709,7 @@ export default function VisitorHome() {
         }
       });
     };
-  }, [mapInstance, infoWindow, exhibitions, userPosition]);
+  }, [mapInstance, infoWindow, exhibitionsWithDistance, userPosition]);
 
   useEffect(() => {
     if (exhibitionMarkersRef.current.length === 0) return;
@@ -537,29 +717,59 @@ export default function VisitorHome() {
     const maps = window.google?.maps;
     if (!maps) return;
 
+    const size = 18;
+
     exhibitionMarkersRef.current.forEach(({ marker, exhibitionId }) => {
-      const exhibition = exhibitions.find((e) => e.id === exhibitionId);
+      const exhibition = exhibitionsWithDistance.find(
+        (e) => e.id === exhibitionId
+      );
       if (!exhibition || !marker) return;
 
       const isHovered = hoveredExhibitionId === exhibitionId;
 
+      const strokeWidth = isHovered ? 4 : 3;
+      const iconSvg = `
+        <svg width="${size * 2}" height="${
+        size * 2
+      }" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <clipPath id="circle-${exhibitionId}">
+              <circle cx="${size}" cy="${size}" r="${size}" />
+            </clipPath>
+            <radialGradient id="glow-${exhibitionId}" cx="50%" cy="50%" r="60%">
+              <stop offset="0%" stop-color="rgba(255,107,107,${
+                isHovered ? 0.95 : 0.7
+              })" />
+              <stop offset="100%" stop-color="rgba(125,90,255,${
+                isHovered ? 0.25 : 0.1
+              })" />
+            </radialGradient>
+          </defs>
+          <circle cx="${size}" cy="${size}" r="${size}" fill="url(#glow-${exhibitionId})" />
+          <circle cx="${size}" cy="${size}" r="${size - 1}" fill="white" />
+          <image href="${exhibition.image}" width="${size * 2}" height="${
+        size * 2
+      }" clip-path="url(#circle-${exhibitionId})" preserveAspectRatio="xMidYMid slice" />
+          <circle cx="${size}" cy="${size}" r="${
+        size - 1
+      }" fill="none" stroke="#FF6B6B" stroke-width="${strokeWidth}" />
+        </svg>
+      `;
+
       marker.setIcon({
-        path: maps.SymbolPath.CIRCLE,
-        scale: isHovered ? 11 : 9,
-        fillColor: isHovered ? "#FF8A80" : "#FF6B6B",
-        fillOpacity: 0.95,
-        strokeColor: "#ffffff",
-        strokeWeight: isHovered ? 3 : 2,
+        url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(iconSvg)}`,
+        scaledSize: new maps.Size(size * 2, size * 2),
+        anchor: new maps.Point(size, size),
       });
       marker.setZIndex(isHovered ? 1000 : 100);
     });
-  }, [hoveredExhibitionId, exhibitions]);
+  }, [hoveredExhibitionId, exhibitionsWithDistance]);
 
   const exhibitionLookup = useMemo(() => {
     const byVenueId = new Map();
     const byLocation = new Map();
 
-    exhibitions.forEach((exhibition) => {
+    exhibitionsWithDistance.forEach((exhibition) => {
       if (exhibition.venueId !== null && exhibition.venueId !== undefined) {
         byVenueId.set(exhibition.venueId, exhibition);
       }
@@ -573,7 +783,7 @@ export default function VisitorHome() {
     });
 
     return { byVenueId, byLocation };
-  }, [exhibitions]);
+  }, [exhibitionsWithDistance]);
 
   const eventsWithDistance = useMemo(() => {
     return events.map((event) => {
@@ -588,6 +798,7 @@ export default function VisitorHome() {
       return {
         ...event,
         _distanceKm: distanceKm,
+        _etaMinutes: estimateTravelMinutes(distanceKm),
       };
     });
   }, [events, userPosition]);
@@ -807,8 +1018,112 @@ export default function VisitorHome() {
     0
   );
 
+  const nearestVenues = useMemo(() => {
+    if (venueSummaries.length === 0) {
+      return [];
+    }
+    const withDistance = venueSummaries.filter(
+      (venue) => venue.distanceKm !== null
+    );
+    if (withDistance.length > 0) {
+      return withDistance.slice(0, 5);
+    }
+    return venueSummaries.slice(0, 5);
+  }, [venueSummaries]);
+
+  const handleMapFocus = useCallback(() => {
+    const cardEl = mapCardRef.current;
+    if (!cardEl) {
+      return;
+    }
+    cardEl.scrollIntoView({ behavior: "smooth", block: "center" });
+    cardEl.classList.add("map-card--highlight");
+    setTimeout(() => {
+      cardEl.classList.remove("map-card--highlight");
+    }, 1400);
+  }, []);
+
+  const handleHeroStatAction = useCallback(
+    (target) => {
+      if (target === "active-events") {
+        navigate("/visitor/events?status=active");
+        return;
+      }
+      if (target === "companies") {
+        navigate("/visitor/events?view=companies");
+      }
+    },
+    [navigate]
+  );
+
   return (
     <div className="visitor-home">
+      {/* Matrix Infinity Background Decoration */}
+      <MatrixInfinity />
+
+      {/* Map Drawer - 좌측 사이드바 */}
+      <div className={`map-drawer ${isMapDrawerOpen ? "open" : ""}`}>
+        <div className="map-drawer-header">
+          <h3>내 주변 전시장 지도</h3>
+          <button
+            onClick={() => setIsMapDrawerOpen(false)}
+            className="btn-drawer-close"
+          >
+            <X size={24} />
+          </button>
+        </div>
+        <div className="map-drawer-content">
+          <p className="map-drawer-subtitle">
+            브라우저 위치 권한을 허용하면 내 위치를 기준으로 표시됩니다
+          </p>
+          <button
+            type="button"
+            className="map-drawer-focusBtn"
+            onClick={() => {
+              handleMapFocus();
+              setIsMapDrawerOpen(false);
+            }}
+          >
+            메인 지도로 이동하기
+          </button>
+          <ul className="map-drawer-venueList">
+            {nearestVenues.length === 0 && (
+              <li className="map-drawer-venueItem map-drawer-venueItem--empty">
+                주변 전시장 좌표를 불러오는 중이에요.
+              </li>
+            )}
+            {nearestVenues.map((venue) => (
+              <li key={venue.id} className="map-drawer-venueItem">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedVenueId(venue.id);
+                    handleVenueNavigate(venue);
+                    handleMapFocus();
+                    setIsMapDrawerOpen(false);
+                  }}
+                >
+                  <span className="map-drawer-venueName">{venue.name}</span>
+                  {venue.distanceKm !== null ? (
+                    <span className="map-drawer-venueDistance">
+                      {formatDistance(venue.distanceKm)}
+                    </span>
+                  ) : (
+                    <span className="map-drawer-venueDistance map-drawer-venueDistance--muted">
+                      거리 정보 없음
+                    </span>
+                  )}
+                </button>
+                {venue.hallInfo && (
+                  <p className="map-drawer-venueMeta">{venue.hallInfo}</p>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+        {locationNotice && <p className="map-notice">{locationNotice}</p>}
+      </div>
+
       {/* Hero Section */}
       <div
         className="hero-section"
@@ -860,13 +1175,45 @@ export default function VisitorHome() {
 
           <div className="hero-stats">
             <div className="hero-stats-list">
-              <div className="hero-stats-item">
-                <span className="hero-stats-label">진행 중인 이벤트</span>
+              <div
+                className="hero-stats-item hero-stats-item--link"
+                role="button"
+                tabIndex={0}
+                onClick={() => handleHeroStatAction("active-events")}
+                onKeyDown={(event) => {
+                  if (
+                    event.key === "Enter" ||
+                    event.key === " " ||
+                    event.key === "Space" ||
+                    event.key === "Spacebar"
+                  ) {
+                    event.preventDefault();
+                    handleHeroStatAction("active-events");
+                  }
+                }}
+              >
+                <span className="hero-stats-label">진행 중인 행사</span>
                 <span className="hero-stats-value">
                   {loading ? "-" : totalActiveEvents}
                 </span>
               </div>
-              <div className="hero-stats-item">
+              <div
+                className="hero-stats-item hero-stats-item--link"
+                role="button"
+                tabIndex={0}
+                onClick={() => handleHeroStatAction("companies")}
+                onKeyDown={(event) => {
+                  if (
+                    event.key === "Enter" ||
+                    event.key === " " ||
+                    event.key === "Space" ||
+                    event.key === "Spacebar"
+                  ) {
+                    event.preventDefault();
+                    handleHeroStatAction("companies");
+                  }
+                }}
+              >
                 <span className="hero-stats-label">참가 기업</span>
                 <span className="hero-stats-value">
                   {loading ? "-" : uniqueCompanyCount}
@@ -889,11 +1236,16 @@ export default function VisitorHome() {
         </div>
       </div>
 
-      {/* Map + Upcoming Section */}
+      {/* Upcoming Events Section */}
       <div className="venues-section">
         <div className="container">
           <div className="map-list-layout">
-            <div className="map-card">
+            <div
+              className={`map-card${
+                isMapDrawerOpen ? " map-card--active" : ""
+              }`}
+              ref={mapCardRef}
+            >
               <h2 className="section-title section-title--tight">
                 내 주변 전시장 지도
               </h2>
@@ -1041,30 +1393,47 @@ export default function VisitorHome() {
                         hoveredExhibitionId === exhibitionIdForHover
                     );
 
+                    const coverImage = isMeaningfulImage(event.image_url)
+                      ? event.image_url
+                      : FALLBACK_EVENT_IMAGE;
+                    const distanceText =
+                      event._distanceKm !== null
+                        ? formatDistance(event._distanceKm)
+                        : null;
+                    const etaText = formatEtaMinutes(event._etaMinutes);
+
+                    const handleCardHover = (nextId) => {
+                      setHoveredExhibitionId(nextId);
+                    };
+
                     return (
                       <div
                         key={event.id}
                         className={`home-exhibition-card${
                           isHoverActive ? " is-hovered" : ""
                         }`}
-                        onClick={() => {
-                          navigate(`/visitor/event/${event.id}`);
-                        }}
-                        onMouseEnter={() => {
-                          if (exhibitionIdForHover) {
-                            setHoveredExhibitionId(exhibitionIdForHover);
-                          } else {
-                            setHoveredExhibitionId(
-                              selectedVenueId === "all" ? null : selectedVenueId
-                            );
-                          }
-                        }}
+                        onClick={() => navigate(`/visitor/event/${event.id}`)}
+                        onMouseEnter={() =>
+                          handleCardHover(
+                            exhibitionIdForHover ??
+                              (selectedVenueId === "all"
+                                ? null
+                                : selectedVenueId)
+                          )
+                        }
                         onMouseLeave={() =>
-                          setHoveredExhibitionId(
+                          handleCardHover(
                             selectedVenueId === "all" ? null : selectedVenueId
                           )
                         }
                       >
+                        <div className="home-exhibition-thumb">
+                          <img
+                            src={coverImage}
+                            alt={(event.event_name || "이벤트") + " 이미지"}
+                            loading="lazy"
+                          />
+                        </div>
                         <div className="home-exhibition-body">
                           <div className="home-exhibition-header">
                             <div className="home-exhibition-title">
@@ -1073,12 +1442,22 @@ export default function VisitorHome() {
                               </span>
                               <h3>{event.event_name || "이벤트명 미정"}</h3>
                             </div>
-                            {event._distanceKm !== null && (
+                            {(distanceText || etaText) && (
                               <div className="home-exhibition-distance">
-                                🚶 {formatDistance(event._distanceKm)} 거리
+                                {distanceText && (
+                                  <span className="distance-badge">
+                                    🚶 {distanceText}
+                                  </span>
+                                )}
+                                {etaText && (
+                                  <span className="distance-eta">
+                                    도보 약 {etaText}
+                                  </span>
+                                )}
                               </div>
                             )}
                           </div>
+
                           <p className="home-exhibition-desc">
                             {event.description || "등록된 설명이 없습니다."}
                           </p>
@@ -1121,20 +1500,14 @@ export default function VisitorHome() {
         </div>
       </div>
 
-      {/* Footer */}
-      <footer className="visitor-footer">
-        <div className="container">
-          <div className="footer-content">
-            <div className="footer-logo">
-              <span className="logo-icon">🎪</span>
-              <span>전시회 플랫폼</span>
-            </div>
-            <div className="footer-links">
-              <a href="/admin/login">관리자</a>
-            </div>
-          </div>
-        </div>
-      </footer>
+      {/* Floating Buttons */}
+      <FloatingButtons
+        showMapButton={true}
+        onMapOpen={() => {
+          setIsMapDrawerOpen(true);
+          handleMapFocus();
+        }}
+      />
     </div>
   );
 }

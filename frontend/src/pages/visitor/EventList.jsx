@@ -1,11 +1,46 @@
 import { useMemo, useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Search, Calendar, MapPin, Clock, ChevronRight } from "lucide-react";
+import FloatingButtons from "../../components/FloatingButtons";
 import "./EventList.css";
 import { getVisitorEvents, getVisitorEventDetail } from "../../apiClient";
 
 const FALLBACK_POSTER =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Crect width='120' height='120' fill='%231E3A8A'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='14' fill='white'%3EEvent%3C/text%3E%3C/svg%3E";
+
+const normalizeISODate = (value) => {
+  if (!value) {
+    return null;
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+  parsed.setHours(0, 0, 0, 0);
+  return parsed;
+};
+
+const isEventOngoing = (event) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const start = normalizeISODate(event.start_date);
+  if (!start) {
+    return false;
+  }
+
+  const end = normalizeISODate(event.end_date) || start;
+
+  if (start > today) {
+    return false;
+  }
+
+  if (end && end < today) {
+    return false;
+  }
+
+  return true;
+};
 
 export default function EventList() {
   const navigate = useNavigate();
@@ -15,6 +50,10 @@ export default function EventList() {
   const locationParam = searchParams.get("location");
   const venueNameParam = searchParams.get("venue_name");
   const venueIdParam = searchParams.get("venue_id");
+  const statusParam = searchParams.get("status");
+  const viewParam = searchParams.get("view");
+  const showActiveOnly = statusParam === "active";
+  const isCompaniesView = viewParam === "companies";
   const numericVenueIdParam =
     venueIdParam && !Number.isNaN(Number(venueIdParam))
       ? Number(venueIdParam)
@@ -45,6 +84,14 @@ export default function EventList() {
       setSearchTerm(newSearchQuery || "");
     }
   }, [searchParams, searchTerm]);
+
+  const statusFilteredEvents = useMemo(() => {
+    if (!showActiveOnly) {
+      return events;
+    }
+
+    return events.filter((event) => isEventOngoing(event));
+  }, [events, showActiveOnly]);
 
   useEffect(() => {
     let active = true;
@@ -118,7 +165,7 @@ export default function EventList() {
   }, [searchTerm, exhibitionId, locationParam, venueNameParam, venueIdParam]);
 
   const exhibition = useMemo(() => {
-    if (!events.length) {
+    if (!statusFilteredEvents.length) {
       if (!venueNameParam && !locationParam && !venueIdParam) {
         return null;
       }
@@ -135,16 +182,16 @@ export default function EventList() {
       };
     }
 
-    const first = events[0];
-    const startDate = events.reduce((min, event) => {
+    const first = statusFilteredEvents[0];
+    const startDate = statusFilteredEvents.reduce((min, event) => {
       const d = new Date(event.start_date);
       return d < min ? d : min;
-    }, new Date(events[0].start_date));
+    }, new Date(statusFilteredEvents[0].start_date));
 
-    const endDate = events.reduce((max, event) => {
+    const endDate = statusFilteredEvents.reduce((max, event) => {
       const d = new Date(event.end_date || event.start_date);
       return d > max ? d : max;
-    }, new Date(events[0].end_date || events[0].start_date));
+    }, new Date(statusFilteredEvents[0].end_date || statusFilteredEvents[0].start_date));
 
     return {
       id:
@@ -166,7 +213,13 @@ export default function EventList() {
           ? numericVenueIdParam
           : first.venue_id || null,
     };
-  }, [events, exhibitionId, locationParam, venueNameParam, venueIdParam]);
+  }, [
+    statusFilteredEvents,
+    exhibitionId,
+    locationParam,
+    venueNameParam,
+    venueIdParam,
+  ]);
 
   // 현재 날짜/시간 포맷팅
   const getCurrentDateTime = () => {
@@ -194,10 +247,10 @@ export default function EventList() {
 
   // 검색 필터링
   const filteredEvents = useMemo(() => {
-    if (!searchTerm) return events;
+    if (!searchTerm) return statusFilteredEvents;
 
     const searchLower = searchTerm.toLowerCase();
-    return events.filter((event) => {
+    return statusFilteredEvents.filter((event) => {
       const eventName = event.event_name?.toLowerCase() || "";
       const companyName = event.company_name?.toLowerCase() || "";
       const description = event.description?.toLowerCase() || "";
@@ -209,7 +262,7 @@ export default function EventList() {
         booth.includes(searchLower)
       );
     });
-  }, [searchTerm, events]);
+  }, [searchTerm, statusFilteredEvents]);
 
   const venueExhibitions = useMemo(() => {
     if (!isVenueView) return [];
@@ -447,6 +500,66 @@ export default function EventList() {
     return list;
   }, [companySortOrder, eventsForSelected, isVenueView, selectedExhibition]);
 
+  const companiesDirectory = useMemo(() => {
+    const groups = new Map();
+
+    filteredEvents.forEach((event) => {
+      if (!event?.company_name) {
+        return;
+      }
+
+      const key = event.company_id || `name-${event.company_name}`;
+      const booth = event.booth_number?.trim();
+      const venueName = event.venue_name?.trim();
+      const startISO = event.start_date || null;
+      const endISO = event.end_date || event.start_date || null;
+
+      if (!groups.has(key)) {
+        groups.set(key, {
+          id: key,
+          companyName: event.company_name,
+          eventCount: 1,
+          boothNumbers: new Set(booth ? [booth] : []),
+          venues: new Set(venueName ? [venueName] : []),
+          earliestStart: startISO,
+          latestEnd: endISO,
+        });
+        return;
+      }
+
+      const entry = groups.get(key);
+      entry.eventCount += 1;
+      if (booth) {
+        entry.boothNumbers.add(booth);
+      }
+      if (venueName) {
+        entry.venues.add(venueName);
+      }
+      if (
+        !entry.earliestStart ||
+        (startISO && startISO < entry.earliestStart)
+      ) {
+        entry.earliestStart = startISO;
+      }
+      if (!entry.latestEnd || (endISO && endISO > entry.latestEnd)) {
+        entry.latestEnd = endISO;
+      }
+    });
+
+    const list = Array.from(groups.values()).map((entry) => ({
+      id: entry.id,
+      companyName: entry.companyName,
+      eventCount: entry.eventCount,
+      boothNumbers: Array.from(entry.boothNumbers),
+      venues: Array.from(entry.venues),
+      earliestStart: entry.earliestStart,
+      latestEnd: entry.latestEnd,
+    }));
+
+    list.sort((a, b) => a.companyName.localeCompare(b.companyName, "ko"));
+    return list;
+  }, [filteredEvents]);
+
   const handleExhibitionSelect = (exhibitionId) => {
     setSelectedExhibitionId(exhibitionId);
   };
@@ -600,6 +713,85 @@ export default function EventList() {
                 <span>{exhibition.hallInfo}</span>
               </div>
             </div>
+          </div>
+        )}
+
+        {isCompaniesView && (
+          <div className="company-directory">
+            <div className="company-section-header">
+              <div>
+                <h3 className="section-title">전체 참여 기업</h3>
+                <p className="company-section-info">
+                  총 {companiesDirectory.length.toLocaleString()}개 기업이 참여
+                  중입니다.
+                </p>
+              </div>
+            </div>
+
+            {loading && companiesDirectory.length === 0 ? (
+              <div className="loading-box">참여 기업 정보를 불러오는 중...</div>
+            ) : companiesDirectory.length === 0 ? (
+              <div className="empty-box">조건에 맞는 기업이 없습니다.</div>
+            ) : (
+              <div className="company-list">
+                {companiesDirectory.map((company) => {
+                  const venueLabel = (() => {
+                    if (!company.venues.length) {
+                      return null;
+                    }
+                    if (company.venues.length <= 3) {
+                      return company.venues.join(", ");
+                    }
+                    const highlighted = company.venues.slice(0, 3).join(", ");
+                    return `${highlighted} 외 ${company.venues.length - 3}곳`;
+                  })();
+
+                  return (
+                    <div key={company.id} className="company-card">
+                      <div className="company-card-header">
+                        <h4>{company.companyName}</h4>
+                        <span>
+                          진행 이벤트 {company.eventCount.toLocaleString()}건
+                        </span>
+                      </div>
+                      <div className="company-card-body">
+                        <div className="company-card-dates">
+                          <span>
+                            시작 {formatDate(company.earliestStart) || "미정"}
+                          </span>
+                          <span>
+                            종료 {formatDate(company.latestEnd) || "미정"}
+                          </span>
+                        </div>
+                        {venueLabel && (
+                          <div className="company-card-booths">
+                            주최 {venueLabel}
+                          </div>
+                        )}
+                        {company.boothNumbers.length > 0 && (
+                          <div className="company-card-booths">
+                            부스 {company.boothNumbers.join(", ")}
+                          </div>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        className="company-card-action"
+                        onClick={() => {
+                          const params = new URLSearchParams(searchParams);
+                          params.set("search", company.companyName);
+                          params.set("view", "companies");
+                          navigate(`/visitor/events?${params.toString()}`);
+                          setSearchTerm(company.companyName);
+                        }}
+                      >
+                        이 기업 이벤트 보기
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
@@ -801,6 +993,9 @@ export default function EventList() {
           renderEventsSection()
         )}
       </div>
+
+      {/* Floating Buttons */}
+      <FloatingButtons showMapButton={false} />
     </div>
   );
 }
