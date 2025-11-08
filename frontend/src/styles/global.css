@@ -3,7 +3,6 @@
   padding: 0;
   box-sizing: border-box;
 }
-
 html,
 body,
 #root {
@@ -20,6 +19,13 @@ body {
   color: var(--text-primary);
   line-height: 1.6;
   transition: background-color 0.3s ease, color 0.3s ease;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+#root {
+  min-height: 100%;
 }
 
 :root {
@@ -572,6 +578,52 @@ a {
   margin: 24px 0;
 }
 
+/* Light Mode - 봄 톤 Windows Vista 스타일 (기본값) */
+[data-theme="light"] {
+  /* Vista-inspired 봄 색상 팔레트 */
+  --vista-sky: #E0F7FA;
+  --vista-cream: #FFF9C4;
+  --vista-pink: #F8BBD0;
+  --vista-lavender: #E1BEE7;
+  --vista-mint: #C8E6C9;
+
+  --neutral-50: #FAFAFA;
+  --neutral-100: #F5F5F5;
+  --neutral-200: #EEEEEE;
+  --neutral-300: #E0E0E0;
+  --neutral-400: #BDBDBD;
+  --neutral-500: #9E9E9E;
+  --neutral-600: #757575;
+  --neutral-700: #616161;
+  --neutral-800: #424242;
+  --neutral-900: #212121;
+
+  --text-primary: #2C3E50;
+  --text-secondary: #546E7A;
+  --text-tertiary: #90A4AE;
+
+  --bg-white: #FFFFFF;
+  --bg-gray: #F5F5F5;
+  --bg-body: linear-gradient(135deg, var(--vista-sky) 0%, var(--vista-cream) 50%, var(--vista-pink) 100%);
+  --border-color: rgba(180, 180, 220, 0.3);
+
+  /* Glow & Bloom 효과 */
+  --shadow-sm: 0 1px 3px 0 rgba(123, 97, 255, 0.12), 0 0 10px rgba(255, 107, 157, 0.08);
+  --shadow: 0 2px 8px 0 rgba(123, 97, 255, 0.15), 0 0 15px rgba(255, 192, 203, 0.1);
+  --shadow-md: 0 4px 12px -1px rgba(123, 97, 255, 0.18), 0 0 20px rgba(255, 182, 193, 0.12);
+  --shadow-lg: 0 10px 25px -3px rgba(123, 97, 255, 0.2), 0 0 30px rgba(255, 182, 193, 0.15);
+  --shadow-xl: 0 20px 35px -5px rgba(123, 97, 255, 0.25), 0 0 40px rgba(255, 192, 203, 0.18);
+
+  /* 색상 오버라이드 (Vista 스타일) */
+  --primary-color: #6A5ACD; /* SlateBlue */
+  --primary-hover: #836FFF;
+  --secondary-color: #FF6B9D; /* 봄 핑크 */
+  --success: #66BB6A; /* 연한 그린 */
+  --warning: #FFA726; /* 따뜻한 오렌지 */
+  --danger: #EF5350; /* 부드러운 레드 */
+  --info: #42A5F5; /* 밝은 블루 */
+}
+
 /* Dark Mode */
 [data-theme="dark"] {
   --neutral-50: #1e293b;
@@ -693,7 +745,7 @@ a {
   initial-value: 0.2;
 }
 
-/* ChronoMorph Color Variables */
+/* ChronoMorph Color Variables - 다크 모드 (기본) */
 :root {
   /* 어두운 배경 - 2개의 radial gradient + 베이스 컬러 */
   --chrono-bg: radial-gradient(
@@ -714,6 +766,30 @@ a {
   --accent-h: 260;
   --accent-s: 92%;
   --accent-l: 62%;
+
+  /* Perspective for 3D effects */
+  --chrono-perspective: 1600px;
+  --chrono-perspective-origin: 50% 25%;
+}
+
+/* ChronoMorph Color Variables - 라이트 모드 (봄 톤, Vista 스타일) */
+[data-theme="light"] {
+  /* 밝고 깨끗한 봄 배경 - 더 밝은 톤 */
+  --chrono-bg:
+    radial-gradient(circle at 20% -10%, rgba(245, 225, 255, 0.5), transparent 60%),
+    radial-gradient(circle at 80% 120%, rgba(220, 240, 255, 0.6), transparent 65%),
+    linear-gradient(135deg, #F0FBFF 0%, #FFFEF0 50%, #FFF5F8 100%);
+
+  /* Glass Morphism - 밝은 버전 */
+  --chrono-glass: rgba(255, 255, 255, 0.75);
+  --chrono-glass-light: rgba(255, 255, 255, 0.85);
+  --chrono-outline: rgba(180, 180, 220, 0.25);
+  --chrono-outline-bright: rgba(180, 180, 220, 0.4);
+
+  /* Accent Color System - 봄 톤 */
+  --accent-h: 320;
+  --accent-s: 75%;
+  --accent-l: 65%;
 
   /* Perspective for 3D effects */
   --chrono-perspective: 1600px;

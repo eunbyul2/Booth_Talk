@@ -1271,3 +1271,384 @@ def _generate_search_query(self, event_name, description, tags):
 _작성자_: Naru
 _일시_: 2025-11-07
 
+---
+
+## 오늘(2025-11-08) 수행한 주요 수정사항 - 프레젠테이션 준비
+
+### 📋 요약
+**프레젠테이션 일정**: 2025-11-08 10:00 AM
+**Merge 일정**: 2025-11-08 09:00 AM
+**작업 내용**: 다크/라이트 모드 구현, 버그 수정 3건, Unsplash 썸네일 자동 생성
+
+### ✨ 구현된 기능
+
+#### 1. 다크/라이트 모드 토글 시스템
+**목적**: 사용자에게 화이트 모드(봄 톤, Vista 스타일)와 다크 모드(기존 ChronoMorph) 선택권 제공
+
+**구현 파일**:
+- ✅ `frontend/src/context/ThemeContext.jsx` (신규 생성)
+- ✅ `frontend/src/App.jsx` (ThemeProvider 래핑)
+- ✅ `frontend/src/components/Header.jsx` (토글 버튼 추가)
+- ✅ `frontend/src/components/Header.css` (버튼 스타일링)
+- ✅ `frontend/src/styles/global.css` (라이트 모드 CSS 변수)
+
+**주요 특징**:
+- **기본 모드**: Light (화이트 모드)
+- **저장 방식**: localStorage (`booth-talk-theme`)
+- **토글 버튼**: Header 우상단 (Sun/Moon 아이콘)
+- **애니메이션**: 180도 회전 + conic gradient glow 효과
+- **Vista 스타일**: Glow, Bloom, Sparkle 효과 구현
+
+**라이트 모드 색상 팔레트**:
+```css
+--vista-sky: #E0F7FA;        /* 하늘색 */
+--vista-cream: #FFF9C4;      /* 크림색 */
+--vista-pink: #F8BBD0;       /* 핑크색 */
+--vista-lavender: #E1BEE7;   /* 라벤더 */
+--vista-mint: #C8E6C9;       /* 민트색 */
+--primary-color: #6A5ACD;    /* SlateBlue */
+--secondary-color: #FF6B9D;  /* 봄 핑크 */
+```
+
+**구현 코드 (ThemeContext.jsx)**:
+```javascript
+export const ThemeProvider = ({ children }) => {
+  const [theme, setTheme] = useState(() => {
+    const savedTheme = localStorage.getItem('booth-talk-theme');
+    return savedTheme || 'light'; // 기본값: light
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('booth-talk-theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme((prevTheme) => (prevTheme === 'light' ? 'dark' : 'light'));
+  };
+
+  return (
+    <ThemeContext.Provider value={{ theme, toggleTheme, isDark: theme === 'dark' }}>
+      {children}
+    </ThemeContext.Provider>
+  );
+};
+```
+
+---
+
+#### 2. 버그 수정 3건
+
+**Bug #1: EventDetail '목록으로' 버튼 오작동**
+- **파일**: `frontend/src/pages/visitor/EventDetail.jsx:97`
+- **증상**: 버튼 클릭 시 URL 파라미터(exhibition_id)가 소실
+- **원인**: `navigate("/visitor/events")` 하드코딩
+- **해결**: `navigate(-1)` 브라우저 히스토리 사용
+```javascript
+// Before
+onClick={() => navigate("/visitor/events")}
+
+// After
+onClick={() => navigate(-1)}
+```
+
+**Bug #2: 스크롤 하단 흰색 박스**
+- **파일**:
+  - `frontend/src/styles/global.css` (html/body height 설정)
+  - `frontend/src/pages/visitor/VisitorHome.css:71, 742`
+- **증상**: 페이지 하단 스크롤 시 흰색 여백 발생
+- **원인**: 부적절한 padding/margin 설정
+- **해결**:
+```css
+/* global.css */
+html {
+  min-height: 100%;
+  height: 100%;
+}
+
+body {
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* VisitorHome.css */
+.visitor-home {
+  padding-bottom: 0;  /* 추가 */
+}
+
+.visitor-footer {
+  margin-bottom: 0;  /* 추가 */
+}
+```
+
+**Bug #3: 지도 마커 깨진 이미지**
+- **파일**: `frontend/src/pages/visitor/VisitorHome.jsx:209-241, 325-351`
+- **증상**: 지도 마커에 깨진 이미지 아이콘 표시
+- **원인**: SVG `<image>` 태그에서 외부 URL 로딩 실패
+- **해결**: 이미지 기반 마커를 순수 SVG 핀 디자인으로 변경
+```javascript
+// Before: 이미지 기반 마커
+<image href="${ex.image}" ... />
+
+// After: 순수 SVG 핀 (레이어드 원형 디자인)
+<circle cx="${size}" cy="${size}" r="${size + 1}" fill="rgba(255, 107, 107, 0.2)" />
+<circle cx="${size}" cy="${size}" r="${size}" fill="#FF6B6B"/>
+<circle cx="${size}" cy="${size}" r="${size - 3}" fill="white"/>
+<circle cx="${size}" cy="${size}" r="${size - 6}" fill="#FF6B6B"/>
+```
+
+---
+
+#### 3. Unsplash 썸네일 자동 생성 실행
+
+**실행 파일**: `backend/backfill_unsplash_images.py`
+
+**수정 사항**:
+- Line 81: `photographer_name` → `photographer` (버그 수정)
+
+**실행 결과**:
+```bash
+$ python backfill_unsplash_images.py
+
+✅ 성공: 27개 (75%)
+❌ 실패: 9개 (Rate Limit 403)
+📝 전체: 36개
+```
+
+**생성된 이미지**:
+- 27개 이벤트에 Unsplash 이미지 자동 생성 완료
+- ChatGPT가 최적화된 영문 키워드 생성
+- Unsplash CDN URL 직접 사용 (로컬 저장 없음)
+
+**실패 원인**:
+- Unsplash API Rate Limit (50 requests/hour)
+- 나머지 9개는 나중에 재실행 가능
+
+---
+
+### 📁 변경된 파일 목록
+
+#### 신규 생성
+- `frontend/src/context/ThemeContext.jsx`
+
+#### 수정된 파일
+**Backend**:
+- `backend/backfill_unsplash_images.py` (Line 81: photographer 필드명 수정)
+
+**Frontend**:
+- `frontend/src/App.jsx` (ThemeProvider 추가)
+- `frontend/src/components/Header.jsx` (토글 버튼 추가)
+- `frontend/src/components/Header.css` (버튼 스타일)
+- `frontend/src/styles/global.css` (라이트 모드 CSS 변수, html/body height)
+- `frontend/src/pages/visitor/EventDetail.jsx` (Line 97: navigate 수정)
+- `frontend/src/pages/visitor/VisitorHome.jsx` (Line 209-351: 마커 SVG 변경)
+- `frontend/src/pages/visitor/VisitorHome.css` (Line 71, 742: padding/margin 수정)
+
+---
+
+### 🔀 Merge 체크리스트 (2025-11-08 09:00 AM)
+
+#### ✅ 필수 확인 사항
+- [ ] **테마 토글 버튼**이 Header 우상단에 표시되는가?
+- [ ] **라이트/다크 모드 전환**이 정상 작동하는가?
+- [ ] **EventDetail '목록으로' 버튼**이 이전 페이지로 돌아가는가?
+- [ ] **스크롤 하단 흰색 박스**가 사라졌는가?
+- [ ] **지도 마커**가 깨진 이미지 없이 표시되는가?
+- [ ] **Unsplash 이미지**가 이벤트 목록에 표시되는가?
+
+#### 🔴 충돌 가능성 높은 파일
+1. **`frontend/src/styles/global.css`**
+   - 충돌 위치: 전체 파일 (라이트 모드 변수 대량 추가)
+   - 해결 방법: 기존 다크 모드 변수는 유지하고 라이트 모드 변수 추가
+
+2. **`frontend/src/pages/visitor/VisitorHome.jsx`**
+   - 충돌 위치: Line 209-351 (마커 생성 로직)
+   - 해결 방법: SVG 마커 코드 전체 교체
+
+#### 🟡 충돌 가능성 중간인 파일
+3. **`frontend/src/App.jsx`**
+   - 충돌 위치: Line 1-2, 25-26 (ThemeProvider 임포트 및 래핑)
+   - 해결 방법: BrowserRouter를 ThemeProvider로 래핑
+
+4. **`frontend/src/components/Header.jsx`**
+   - 충돌 위치: Line 3, 38-40 (테마 토글 버튼)
+   - 해결 방법: header-actions div에 버튼 추가
+
+#### 🟢 충돌 가능성 낮은 파일
+5. **`frontend/src/components/Header.css`** (파일 끝에 추가)
+6. **`frontend/src/pages/visitor/EventDetail.jsx`** (한 줄만 변경)
+7. **`frontend/src/pages/visitor/VisitorHome.css`** (두 줄만 수정)
+8. **`backend/backfill_unsplash_images.py`** (한 줄만 수정)
+
+---
+
+### 🧪 테스트 방법
+
+#### 로컬 테스트
+```bash
+# 1. Backend 시작
+cd backend
+source .venv/bin/activate
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+
+# 2. Frontend 시작
+cd frontend
+npm run dev
+
+# 3. 브라우저 테스트
+# - http://localhost:3000/visitor (라이트/다크 모드 전환)
+# - http://localhost:3000/visitor/event/1 ('목록으로' 버튼)
+# - 스크롤 하단 확인 (흰색 박스 없어야 함)
+# - 지도 마커 확인 (깨진 이미지 없어야 함)
+```
+
+#### 기능별 테스트
+1. **테마 전환**: Header 우상단 Sun/Moon 버튼 클릭
+   - 전환 시 180도 회전 애니메이션 확인
+   - 전체 페이지 색상 변경 확인
+   - localStorage에 저장 확인 (개발자 도구)
+
+2. **EventDetail 버튼**:
+   - `/visitor/events?exhibition_id=1` → 이벤트 클릭 → '목록으로' 버튼
+   - exhibition_id 파라미터가 유지되는지 확인
+
+3. **스크롤 테스트**:
+   - VisitorHome 페이지 하단까지 스크롤
+   - 흰색 박스 없이 자연스럽게 끝나는지 확인
+
+4. **지도 마커**:
+   - VisitorHome 지도 확인
+   - 빨간색 원형 핀이 표시되는지 확인
+   - 마우스 hover 시 크기 변화 확인
+
+---
+
+### 📊 통계
+
+**작업 시간**: 약 2시간
+**변경 파일 수**: 9개 (1개 신규, 8개 수정)
+**코드 라인 수**:
+- 추가: ~250줄
+- 수정: ~50줄
+- 삭제: ~20줄
+
+**기능 완성도**:
+- ✅ 테마 토글: 100%
+- ✅ 버그 수정: 100% (3/3)
+- ✅ Unsplash 썸네일: 75% (27/36, Rate Limit으로 9개 대기)
+
+---
+
+### 🚨 주의사항
+
+#### Merge 시 반드시 확인할 것
+1. **global.css 충돌**: 라이트 모드 변수가 기존 다크 모드 변수를 덮어쓰지 않도록 주의
+2. **ThemeProvider 래핑**: App.jsx에서 BrowserRouter가 ThemeProvider 안에 있어야 함
+3. **localStorage 충돌**: 다른 테마 관련 localStorage 키와 충돌하지 않는지 확인
+
+#### 알려진 이슈
+- **Unsplash Rate Limit**: 9개 이벤트는 1시간 후 재실행 필요
+- **Safari 호환성**: iOS Safari에서 Vista glow 효과가 약하게 보일 수 있음
+
+---
+
+### 📝 후속 작업 (선택 사항)
+
+1. **Unsplash 이미지 재실행**: 1시간 후 나머지 9개 이미지 생성
+2. **라이트 모드 세부 조정**: 각 페이지별 색상 최적화
+3. **애니메이션 성능 개선**: prefers-reduced-motion 적용
+
+---
+
+_작성자_: Naru (Claude Code)
+_업데이트 일시_: 2025-11-08 (Presentation Day)
+_Merge Deadline_: 2025-11-08 09:00 AM
+
+---
+
+## 오늘(2025-11-08) 추가 작업 - 방문자 페이지 UI/UX 개선
+
+### 📋 요약
+**작업 시간**: 오후 (프레젠테이션 이후)
+**주요 내용**: 테마 시스템 고도화, MatrixInfinity 배경 애니메이션, UI/UX 개선, 디버깅
+
+### ✨ 구현된 기능
+
+#### 1. 라이트/다크 테마 시스템 고도화
+- ThemeContext 전역 상태 관리 (localStorage 연동)
+- FloatingButtons 컴포넌트 생성 (테마/지도/관리자 버튼 통합)
+- MatrixInfinity 배경 애니메이션 컴포넌트
+  - 라이트 모드: 사이버펑크풍 데이터 파티클 (dot 60%, stream 25%, cluster 15%)
+  - 다크 모드: 3D 뫼비우스 띠 무한대 효과 + optical flare
+
+#### 2. UI/UX 개선
+- hero-section과 events-list 간격 최소화 (거의 붙임)
+- EventDetail 날짜/시간/장소 아이콘 보라색 박스 제거
+- EventList "홈으로" 버튼 클릭 영역 개선 (z-index, padding)
+- 테마별 색상 팔레트 정리 (sophisticated 색상으로 교체)
+
+#### 3. 디버깅 사항
+- VisitorHome 흰 화면 해결 (X 아이콘 import 누락)
+- 다크모드 hero title 흰색 박스 glow 제거 (drop-shadow 강도 축소)
+- 라이트모드 Events 페이지 텍스트 가독성 개선 (어두운 색상 적용)
+- MatrixInfinity 파티클 shadow 제거 (깔끔한 radial gradient로 대체)
+
+### 📁 변경된 파일 목록
+
+#### 신규 생성
+- `frontend/src/components/MatrixInfinity.jsx`
+- `frontend/src/components/MatrixInfinity.css`
+- `frontend/src/components/FloatingButtons.jsx`
+- `frontend/src/components/FloatingButtons.css`
+- `frontend/src/context/ThemeContext.jsx`
+
+#### 수정된 파일
+- `frontend/src/App.jsx` (ThemeProvider 래핑)
+- `frontend/src/pages/visitor/VisitorHome.jsx` (MatrixInfinity 추가)
+- `frontend/src/pages/visitor/VisitorHome.css` (spacing 조정)
+- `frontend/src/pages/visitor/EventList.jsx`
+- `frontend/src/pages/visitor/EventList.css` (버튼 개선)
+- `frontend/src/pages/visitor/EventDetail.css` (아이콘 박스 제거)
+- `frontend/src/styles/global.css` (라이트 모드 색상 개선)
+
+### 📊 통계
+- **변경 파일 수**: 27개 (5개 신규, 22개 수정)
+- **코드 라인 수**: 3,255 라인 변경
+- **커밋 ID**: 15f8841
+- **브랜치**: naruDrive
+- **원격 푸시**: 완료
+
+### 🎨 기술 상세
+
+#### MatrixInfinity 색상 팔레트
+```javascript
+const colors = {
+  electricBlue: { r: 100, g: 180, b: 255 },
+  softPurple: { r: 180, g: 140, b: 255 },
+  mintCyan: { r: 120, g: 220, b: 200 },
+  coralPink: { r: 255, g: 150, b: 180 },
+  pearlWhite: { r: 240, g: 245, b: 255 },
+};
+```
+
+#### 파티클 타입 분포
+- **Dot**: 60% (순수 원형 파티클)
+- **Stream**: 25% (바이너리 텍스트 스트림)
+- **Cluster**: 15% (5x5 픽셀 그리드)
+
+#### 렌더링 최적화
+- shadowBlur/shadowColor 완전 제거 (성능 향상)
+- createRadialGradient만 사용 (깔끔한 glow 효과)
+- Intersection Observer로 가시성 기반 애니메이션 제어
+
+---
+
+_작성자_: Naru (Claude Code)
+_업데이트 일시_: 2025-11-08 (Post-Presentation)
+_Git Commit_: 15f8841
+

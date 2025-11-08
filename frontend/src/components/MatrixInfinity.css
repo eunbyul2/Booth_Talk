@@ -1,0 +1,80 @@
+/* Matrix Infinity Background Component */
+/* Modular decoration - can be removed without affecting layout */
+
+.matrix-infinity-wrapper {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+  opacity: 0.6;
+  transition: opacity 0.3s ease;
+}
+
+.matrix-infinity-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Theme-specific styles */
+[data-theme="dark"] .matrix-infinity-wrapper {
+  opacity: 0.7;
+  mix-blend-mode: screen;
+}
+
+[data-theme="light"] .matrix-infinity-wrapper {
+  opacity: 0.75;
+  mix-blend-mode: normal;
+  filter: brightness(1.1) saturate(1.2);
+}
+
+/* Accessibility: Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  .matrix-infinity-wrapper {
+    display: none;
+  }
+}
+
+/* Mobile optimization - reduce intensity */
+@media (max-width: 768px) {
+  .matrix-infinity-wrapper {
+    opacity: 0.4;
+  }
+
+  [data-theme="dark"] .matrix-infinity-wrapper {
+    opacity: 0.5;
+  }
+
+  [data-theme="light"] .matrix-infinity-wrapper {
+    opacity: 0.35;
+  }
+}
+
+/* Tablet optimization */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .matrix-infinity-wrapper {
+    opacity: 0.55;
+  }
+
+  [data-theme="dark"] .matrix-infinity-wrapper {
+    opacity: 0.65;
+  }
+}
+
+/* High contrast mode - hide decorative elements */
+@media (prefers-contrast: high) {
+  .matrix-infinity-wrapper {
+    display: none;
+  }
+}
+
+/* Print - hide decorative elements */
+@media print {
+  .matrix-infinity-wrapper {
+    display: none;
+  }
+}
