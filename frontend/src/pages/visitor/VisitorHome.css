@@ -414,6 +414,121 @@
   pointer-events: none;
 }
 
+.venue-chip-row {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 12px 4px 4px;
+  margin-bottom: 20px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
+}
+
+.venue-chip-row::-webkit-scrollbar {
+  height: 6px;
+}
+
+.venue-chip-row::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+}
+
+.venue-chip-row::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.venue-chip {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  min-width: 132px;
+  padding: 12px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(33, 24, 63, 0.55);
+  color: rgba(235, 240, 255, 0.9);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease,
+    background 0.2s ease;
+  box-shadow: 0 12px 24px rgba(12, 8, 28, 0.35);
+  text-align: left;
+}
+
+.venue-chip:hover,
+.venue-chip:focus-visible {
+  transform: translateY(-4px);
+  background: rgba(76, 55, 148, 0.7);
+  border-color: rgba(180, 145, 255, 0.55);
+  box-shadow: 0 16px 36px rgba(30, 18, 65, 0.55);
+  outline: none;
+}
+
+.venue-chip.selected {
+  background: linear-gradient(
+    135deg,
+    rgba(110, 82, 235, 0.9),
+    rgba(74, 108, 240, 0.9)
+  );
+  border-color: rgba(255, 255, 255, 0.4);
+  color: white;
+  box-shadow: 0 18px 38px rgba(64, 78, 255, 0.55);
+}
+
+.venue-chip-name {
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.venue-chip-meta {
+  font-size: 12px;
+  color: rgba(220, 225, 255, 0.78);
+}
+
+.venue-chip.selected .venue-chip-meta {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.venue-chip-distance {
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(24, 18, 48, 0.55);
+  padding: 2px 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.venue-chip.selected .venue-chip-distance {
+  background: rgba(0, 0, 0, 0.25);
+  border-color: rgba(255, 255, 255, 0.4);
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.venue-chip-empty {
+  flex: 1 1 auto;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 16px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px dashed rgba(255, 255, 255, 0.22);
+  color: rgba(220, 225, 255, 0.78);
+}
+
 .section-title {
   font-size: clamp(1.8rem, 4vw, 2.5rem);
   color: rgba(238, 240, 255, 0.98);

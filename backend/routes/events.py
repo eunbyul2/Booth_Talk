@@ -15,9 +15,90 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from models.event import Event
+from models.exhibition import Exhibition
+from models.venue import Venue
 from models.tag import Tag, event_tags
 from services.llm_service import llm_service
 from services.unsplash_service import get_unsplash_service
+
+REGION_KEYWORDS = {
+    "서울": ["서울", "coex", "코엑스", "세텍", "ddp", "송파", "강남", "잠실", "마곡"],
+    "경기": ["경기", "킨텍스", "일산", "수원", "고양"],
+    "부산": ["부산", "벡스코"],
+    "대구": ["대구", "엑스코"],
+    "광주": ["광주", "김대중"],
+    "인천": ["인천", "송도", "컨벤시아"],
+}
+
+
+def _guess_region(name: str) -> str:
+    if not name:
+        return "기타"
+    lowered = name.lower()
+    for region, keywords in REGION_KEYWORDS.items():
+        if any(keyword in lowered for keyword in keywords):
+            return region
+    return "기타"
+
+
+def _ensure_venue(db: Session, location_name: str) -> Venue:
+    name = (location_name or "").strip() or "미정 전시장"
+    existing = (
+        db.query(Venue)
+        .filter(func.lower(Venue.venue_name) == name.lower())
+        .first()
+    )
+    if existing:
+        return existing
+
+    venue = Venue(
+        venue_name=name,
+        location=_guess_region(name),
+        address=f"{name} 주소 미등록",
+        description=None,
+        website_url=None,
+        is_active=True,
+    )
+    db.add(venue)
+    db.flush()
+    return venue
+
+
+def _ensure_exhibition(
+    db: Session,
+    request: "EventCreateRequest",
+    venue: Venue,
+    start_date: date,
+    end_date: Optional[date],
+) -> Exhibition:
+    title_candidate = (request.form_data.location or "").strip() or request.form_data.eventName
+    normalized_title = title_candidate.strip().lower()
+    final_end_date = end_date or start_date
+
+    existing = (
+        db.query(Exhibition)
+        .filter(Exhibition.venue_id == venue.id)
+        .filter(func.lower(Exhibition.title) == normalized_title)
+        .filter(Exhibition.start_date == start_date)
+        .filter(Exhibition.end_date == final_end_date)
+        .first()
+    )
+    if existing:
+        return existing
+
+    exhibition = Exhibition(
+        venue_id=venue.id,
+        title=title_candidate,
+        subtitle=request.form_data.eventName if title_candidate != request.form_data.eventName else None,
+        hall_location=(request.form_data.venue or "").strip() or None,
+        description=request.form_data.description or None,
+        start_date=start_date,
+        end_date=final_end_date,
+        is_active=True,
+    )
+    db.add(exhibition)
+    db.flush()
+    return exhibition
 
 
 router = APIRouter(tags=["이벤트"])
@@ -240,12 +321,16 @@ def _build_event_response(event: Event) -> EventResponse:
 
     time_str = _format_time_range(event.start_time, event.end_time)
 
+    venue_detail = ""
+    if event.exhibition and event.exhibition.hall_location:
+        venue_detail = event.exhibition.hall_location
+
     return EventResponse(
         id=event.id,
         eventName=event.event_name,
         boothNumber=event.booth_number or "",
         location=event.location or "",  # 전시장/장소
-        venue=getattr(event, 'venue', '') or "",  # 상세 장소 (모델에 없을 수 있음)
+        venue=venue_detail,
         date=date_str,
         time=time_str,
         description=event.description or "",
@@ -368,7 +453,7 @@ async def analyze_event_image(
 async def create_event(request: EventCreateRequest, db: Session = Depends(get_db)):
     """LLM 분석 결과로 이벤트를 생성한다."""
 
-        # 날짜 파싱: 분리된 필드 우선, 기존 필드 fallback
+    # 날짜 파싱: 분리된 필드 우선, 기존 필드 fallback
     start_date, end_date = None, None
     
     if request.form_data.startDate:
@@ -449,10 +534,14 @@ async def create_event(request: EventCreateRequest, db: Session = Depends(get_db
             logger.error(f"Unsplash 이미지 생성 중 오류: {e}")
             # 실패 시 무시하고 계속 진행 (이미지 없이 이벤트 생성)
 
+    venue_record = _ensure_venue(db, request.form_data.location or request.form_data.eventName)
+    # 전시장 정보가 없더라도 항상 이벤트가 속할 전시/전시장을 보장한다.
+    exhibition = _ensure_exhibition(db, request, venue_record, start_date, end_date)
+
     event = Event(
         event_name=request.form_data.eventName,
         booth_number=request.form_data.boothNumber or None,
-        location=request.form_data.location or None,  # 전시장/장소
+        location=(request.form_data.location or venue_record.venue_name),  # 전시장/장소
         description=request.form_data.description,
         participation_method=request.form_data.participationMethod or None,
         benefits=request.form_data.benefits or None,
@@ -465,6 +554,7 @@ async def create_event(request: EventCreateRequest, db: Session = Depends(get_db
         image_url=final_image_url,  # 최종 이미지 URL 저장
         unsplash_image_url=unsplash_image_url,  # Unsplash 자동 생성 이미지
         has_custom_image=has_custom_image,  # 주최측 업로드 여부
+        exhibition_id=exhibition.id,
     )
 
     db.add(event)
@@ -484,6 +574,58 @@ async def create_event(request: EventCreateRequest, db: Session = Depends(get_db
     db.refresh(event)
 
     return _build_event_response(event)
+
+
+# ========================================
+# PDF 업로드
+# ========================================
+
+
+@router.post("/{event_id}/upload-pdf")
+async def upload_event_pdf(
+    event_id: int,
+    pdf: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    if pdf.content_type != "application/pdf":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="PDF 파일만 업로드할 수 있습니다.",
+        )
+
+    event = db.query(Event).filter(Event.id == event_id).first()
+    if not event:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="이벤트를 찾을 수 없습니다.",
+        )
+
+    uploads_dir = "uploads/pdfs"
+    os.makedirs(uploads_dir, exist_ok=True)
+
+    filename = f"event_{event_id}_{uuid.uuid4().hex}.pdf"
+    file_path = os.path.join(uploads_dir, filename)
+
+    if event.pdf_url:
+        old_path = event.pdf_url.lstrip("/")
+        if os.path.exists(old_path):
+            try:
+                os.remove(old_path)
+            except OSError:
+                logging.getLogger(__name__).warning("기존 PDF 삭제 실패: %s", old_path)
+
+    async with aiofiles.open(file_path, "wb") as buffer:
+        while True:
+            chunk = await pdf.read(1024 * 1024)
+            if not chunk:
+                break
+            await buffer.write(chunk)
+
+    event.pdf_url = f"/uploads/pdfs/{filename}"
+    db.commit()
+    db.refresh(event)
+
+    return {"pdf_url": event.pdf_url}
 
 
 # ========================================
