@@ -12,6 +12,27 @@ import {
 import Header from "../../components/Header.jsx";
 import "./EventUpload.css";
 
+const INITIAL_EVENT_DATA = {
+  eventName: "",
+  boothNumber: "",
+  location: "", // 전시장/장소
+  venue: "", // 상세 장소
+
+  // 분리된 날짜 필드
+  startDate: "",
+  endDate: "",
+  date: "", // 기존 필드 (backward compatibility)
+
+  // 분리된 시간 필드
+  startTime: "",
+  endTime: "",
+  time: "", // 기존 필드 (backward compatibility)
+
+  description: "",
+  participationMethod: "",
+  benefits: "",
+};
+
 export default function EventUpload() {
   const navigate = useNavigate();
   const [imageFile, setImageFile] = useState(null);
@@ -20,28 +41,11 @@ export default function EventUpload() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isEditing, setIsEditing] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPdfUploading, setIsPdfUploading] = useState(false);
   const [companyInfo, setCompanyInfo] = useState(null);
+  const [createdEventId, setCreatedEventId] = useState(null);
 
-  const [eventData, setEventData] = useState({
-    eventName: "",
-    boothNumber: "",
-    location: "", // 전시장/장소
-    venue: "", // 상세 장소
-
-    // 분리된 날짜 필드
-    startDate: "",
-    endDate: "",
-    date: "", // 기존 필드 (backward compatibility)
-
-    // 분리된 시간 필드
-    startTime: "",
-    endTime: "",
-    time: "", // 기존 필드 (backward compatibility)
-
-    description: "",
-    participationMethod: "",
-    benefits: "",
-  });
+  const [eventData, setEventData] = useState(INITIAL_EVENT_DATA);
 
   // LLM 분석 결과 저장
   const [llmResult, setLlmResult] = useState(null);
@@ -139,6 +143,12 @@ export default function EventUpload() {
   };
 
   const handleImageUpload = (e) => {
+    if (createdEventId) {
+      alert(
+        "이미 이벤트가 등록되었습니다. 새로운 이벤트를 추가하려면 페이지를 새로고침하세요."
+      );
+      return;
+    }
     const file = e.target.files[0];
     if (file) {
       setImageFile(file);
@@ -178,6 +188,48 @@ export default function EventUpload() {
     e.preventDefault();
   };
 
+  const handlePdfSubmit = async () => {
+    if (!createdEventId) {
+      alert("먼저 이벤트를 등록해주세요.");
+      return;
+    }
+
+    if (!pdfFile) {
+      alert(
+        "업로드할 PDF 파일을 선택해주세요. 필요 없다면 '건너뛰기' 버튼을 눌러주세요."
+      );
+      return;
+    }
+
+    setIsPdfUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("pdf", pdfFile);
+      formData.append("event_id", createdEventId);
+
+      const response = await fetch(`/api/events/${createdEventId}/upload-pdf`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || "PDF 업로드에 실패했습니다.");
+      }
+
+      alert("PDF 안내물이 업로드되었습니다!");
+      navigate("/company/dashboard");
+    } catch (error) {
+      alert("PDF 업로드 중 오류가 발생했습니다: " + error.message);
+    } finally {
+      setIsPdfUploading(false);
+    }
+  };
+
+  const handleSkipPdf = () => {
+    navigate("/company/dashboard");
+  };
+
   const handleChange = (field, value) => {
     setEventData((prev) => ({
       ...prev,
@@ -195,6 +247,13 @@ export default function EventUpload() {
     // 날짜 검증: 시작날짜가 있거나 기존 date 필드가 있어야 함
     if (!eventData.startDate && !eventData.date) {
       alert("시작 날짜를 입력해주세요.");
+      return;
+    }
+
+    if (createdEventId) {
+      alert(
+        "이 이벤트는 이미 등록되었습니다. 새로운 이벤트를 등록하려면 페이지를 새로고침하세요."
+      );
       return;
     }
 
@@ -240,25 +299,12 @@ export default function EventUpload() {
 
       if (response.ok) {
         const result = await response.json();
-
-        // PDF 파일이 있다면 업로드
-        if (pdfFile) {
-          const formData = new FormData();
-          formData.append("pdf", pdfFile);
-          formData.append("event_id", result.id);
-
-          await fetch(`/api/events/${result.id}/upload-pdf`, {
-            method: "POST",
-            body: formData,
-          });
-        }
-
+        setCreatedEventId(result.id);
+        setIsEditing(false);
+        setPdfFile(null);
         alert(
-          `이벤트가 성공적으로 등록되었습니다!${
-            pdfFile ? `\nPDF 안내물: ${pdfFile.name}` : ""
-          }`
+          "이벤트가 성공적으로 등록되었습니다! 필요하다면 아래에서 PDF 안내물을 추가로 업로드할 수 있어요."
         );
-        navigate("/company/dashboard");
       } else {
         const error = await response.json();
         throw new Error(error.detail || "이벤트 등록에 실패했습니다.");
@@ -309,16 +355,9 @@ export default function EventUpload() {
                   onClick={() => {
                     setImageFile(null);
                     setImagePreview(null);
-                    setEventData({
-                      eventName: "",
-                      boothNumber: "",
-                      date: "",
-                      time: "",
-                      description: "",
-                      participationMethod: "",
-                      benefits: "",
-                    });
+                    setEventData({ ...INITIAL_EVENT_DATA });
                   }}
+                  disabled={!!createdEventId}
                 >
                   이미지 변경
                 </button>
@@ -329,54 +368,6 @@ export default function EventUpload() {
               <div className="processing">
                 <div className="spinner"></div>
                 <span>이미지 분석 중...</span>
-              </div>
-            )}
-          </div>
-
-          {/* PDF 안내물 업로드 섹션 */}
-          <div className="upload-section">
-            <div className="section-title">
-              <FileText size={20} />
-              <span>PDF 안내물</span>
-              <span className="optional-badge">선택사항</span>
-            </div>
-
-            {!pdfFile ? (
-              <label
-                className="upload-box pdf-upload-box"
-                onDrop={handlePdfDrop}
-                onDragOver={handlePdfDragOver}
-              >
-                <input
-                  type="file"
-                  accept=".pdf"
-                  onChange={handlePdfUpload}
-                  style={{ display: "none" }}
-                />
-                <FileText size={48} />
-                <span className="upload-text">PDF 안내물을 업로드하세요</span>
-                <span className="upload-hint">
-                  설문 참여자에게 제공할 회사 소개자료, 카탈로그 등
-                </span>
-              </label>
-            ) : (
-              <div className="pdf-preview">
-                <div className="pdf-info">
-                  <FileText size={24} />
-                  <div className="pdf-details">
-                    <span className="pdf-name">{pdfFile.name}</span>
-                    <span className="pdf-size">
-                      {(pdfFile.size / 1024 / 1024).toFixed(2)} MB
-                    </span>
-                  </div>
-                </div>
-                <button
-                  className="btn-remove-pdf"
-                  onClick={() => setPdfFile(null)}
-                  title="PDF 제거"
-                >
-                  <X size={18} />
-                </button>
               </div>
             )}
           </div>
@@ -392,8 +383,13 @@ export default function EventUpload() {
                 <button
                   className="btn btn-outline btn-sm"
                   onClick={() => setIsEditing(!isEditing)}
+                  disabled={!!createdEventId}
                 >
-                  {isEditing ? "수정 완료" : "수정하기"}
+                  {createdEventId
+                    ? "등록 완료"
+                    : isEditing
+                    ? "수정 완료"
+                    : "수정하기"}
                 </button>
               )}
             </div>
@@ -408,18 +404,6 @@ export default function EventUpload() {
                   onChange={(e) => handleChange("eventName", e.target.value)}
                   disabled={!isEditing}
                   placeholder="이벤트명을 입력하세요"
-                />
-              </div>
-
-              <div className="form-group">
-                <label>부스 번호</label>
-                <input
-                  type="text"
-                  className="input"
-                  value={eventData.boothNumber}
-                  onChange={(e) => handleChange("boothNumber", e.target.value)}
-                  disabled={!isEditing}
-                  placeholder="예: B-123"
                 />
               </div>
 
@@ -538,34 +522,108 @@ export default function EventUpload() {
           </div>
         </div>
 
+        {createdEventId && (
+          <div className="pdf-step">
+            <div className="upload-section">
+              <div className="section-title">
+                <FileText size={20} />
+                <span>PDF 안내물 추가</span>
+                <span className="optional-badge">선택사항</span>
+              </div>
+
+              <p className="pdf-step-description">
+                방금 등록한 이벤트에 안내 자료를 첨부할 수 있어요. PDF를
+                업로드하지 않아도 등록은 완료된 상태입니다.
+              </p>
+
+              {!pdfFile ? (
+                <label
+                  className="upload-box pdf-upload-box"
+                  onDrop={handlePdfDrop}
+                  onDragOver={handlePdfDragOver}
+                >
+                  <input
+                    type="file"
+                    accept=".pdf"
+                    onChange={handlePdfUpload}
+                    style={{ display: "none" }}
+                  />
+                  <FileText size={48} />
+                  <span className="upload-text">PDF 안내물을 업로드하세요</span>
+                  <span className="upload-hint">
+                    설문 참여자에게 제공할 회사 소개자료, 카탈로그 등을 선택할
+                    수 있습니다.
+                  </span>
+                </label>
+              ) : (
+                <div className="pdf-preview">
+                  <div className="pdf-info">
+                    <FileText size={24} />
+                    <div className="pdf-details">
+                      <span className="pdf-name">{pdfFile.name}</span>
+                      <span className="pdf-size">
+                        {(pdfFile.size / 1024 / 1024).toFixed(2)} MB
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    className="btn-remove-pdf"
+                    onClick={() => setPdfFile(null)}
+                    title="PDF 제거"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="upload-actions">
           <button
             className="btn btn-outline"
-            onClick={() => navigate("/company/dashboard")}
+            onClick={
+              createdEventId
+                ? handleSkipPdf
+                : () => navigate("/company/dashboard")
+            }
+            disabled={isSubmitting || isPdfUploading}
           >
-            취소
+            {createdEventId ? "PDF 없이 완료하기" : "취소"}
           </button>
 
-          <div style={{ display: "flex", gap: "12px" }}>
-            <button className="btn btn-outline">
-              <Eye size={18} />
-              미리보기
-            </button>
+          {createdEventId ? (
+            <div style={{ display: "flex", gap: "12px" }}>
+              <button
+                className="btn btn-primary"
+                onClick={handlePdfSubmit}
+                disabled={isPdfUploading || !pdfFile}
+              >
+                <Upload size={18} />
+                {isPdfUploading ? "업로드 중..." : "PDF 업로드"}
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: "flex", gap: "12px" }}>
+              <button className="btn btn-outline">
+                <Eye size={18} />
+                미리보기
+              </button>
 
-            <button
-              className="btn btn-primary"
-              onClick={handleSubmit}
-              disabled={
-                !eventData.eventName ||
-                !eventData.date ||
-                !eventData.time ||
-                isSubmitting
-              }
-            >
-              <Check size={18} />
-              {isSubmitting ? "등록 중..." : "등록하기"}
-            </button>
-          </div>
+              <button
+                className="btn btn-primary"
+                onClick={handleSubmit}
+                disabled={
+                  isSubmitting ||
+                  !eventData.eventName ||
+                  (!eventData.startDate && !eventData.date)
+                }
+              >
+                <Check size={18} />
+                {isSubmitting ? "등록 중..." : "등록하기"}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

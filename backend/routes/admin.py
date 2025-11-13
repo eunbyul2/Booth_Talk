@@ -66,12 +66,6 @@ class SendReportResponse(BaseModel):
     success: bool
     recipient_email: str
     message: str
-    id: int
-    company: str
-    event: str
-    respondent: Optional[str]
-    booth: Optional[str]
-    submitted_at: datetime
 
 
 class CreateCompanyRequest(BaseModel):
